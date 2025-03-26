@@ -36,8 +36,8 @@ export const gameSketch: P5jsSketch = (p, parentRef, userId) => {
       sendToGame({ type: "move", userId, direction });
     }
     game.users.forEach((user) => {
-      const x = user.position.x ?? 0;
-      const y = user.position.y ?? 0;
+      const x = user.position?.x ?? 0;
+      const y = user.position?.y ?? 0;
       p.fill(255);
       p.beginShape();
       p.ellipse(x, y, 24, 24);

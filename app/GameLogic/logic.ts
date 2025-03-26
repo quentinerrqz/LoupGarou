@@ -2,11 +2,11 @@
 
 export type User = {
   name: string | undefined;
-  id: string | undefined;
+  id: string| undefined ;
   isReady: boolean | undefined;
   isSpectator: boolean | undefined;
-  isAdmin?: boolean;
-  position: { x: number; y: number };
+  isAdmin: boolean| undefined;
+  position: { x: number; y: number }| undefined;
 };
 
 export type Game = {
@@ -92,8 +92,8 @@ export const gameUpdater = (state: Game, action: Action) => {
             ? {
                 ...u,
                 position: {
-                  x: u.position.x + (action.direction === "right" ? 10 : action.direction === "left" ? -10 : 0),
-                  y: u.position.y + (action.direction === "down" ? 10 : action.direction === "up" ? -10 : 0),
+                  x: (u.position?.x ?? 0) + (action.direction === "right" ? 10 : action.direction === "left" ? -10 : 0),
+                  y: (u.position?.y ?? 0) + (action.direction === "down" ? 10 : action.direction === "up" ? -10 : 0),
                 },
               }
             : u

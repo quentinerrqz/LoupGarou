@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Party poll!",
-  description: "Voting's better with friends 🎈",
+  description: "Voting's better with friends 🎈"
 };
 
 export default function RootLayout({

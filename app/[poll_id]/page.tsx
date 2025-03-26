@@ -25,7 +25,7 @@ export default async function PollPage(props: {
     if (req.status === 404) {
       notFound();
     } else {
-      throw new Error("Something went wrong.");
+      return notFound();
     }
   }
 

@@ -1,3 +1,4 @@
+"use server";
 import { notFound } from "next/navigation";
 import { PARTYKIT_URL } from "@/app/env";
 
@@ -7,11 +8,9 @@ import P5SketchContainer from "@/components/_Game/P5SketchContainer";
 import { gameSketch } from "../GameLogic/p5sketch";
 import GameL from "@/components/_Game/GameL";
 
-export default async function PollPage(
-  props: {
-    params: Promise<{ poll_id: string }>;
-  }
-) {
+export default async function PollPage(props: {
+  params: Promise<{ poll_id: string }>;
+}) {
   const params = await props.params;
   const pollId = params.poll_id;
 
@@ -35,7 +34,7 @@ export default async function PollPage(
 
   return (
     <div className="h-full w-full">
-     <GameL game={game} roomId={pollId} userId={userId} />
+      <GameL game={game} roomId={pollId} userId={userId} />
     </div>
   );
 }

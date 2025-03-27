@@ -1,10 +1,7 @@
-import Button from "@/components/Button";
-import PollMaker from "@/components/PollMaker";
-import Balloon from "@/components/Balloon";
-import { Poll } from "@/app/types";
+"use server";
+
 import { redirect } from "next/navigation";
 import { PARTYKIT_URL } from "./env";
-import Input from "@/components/Input";
 import RoomButton from "@/components/_Menu/RoomButton";
 import { initialgameState } from "./GameLogic/logic";
 
@@ -14,9 +11,8 @@ export default function Home() {
   async function createPoll() {
     "use server";
 
-  
     const id = randomId();
-  
+
     await fetch(`${PARTYKIT_URL}/party/${id}`, {
       method: "POST",
       body: JSON.stringify(initialgameState),

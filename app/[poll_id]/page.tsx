@@ -1,11 +1,10 @@
 "use server";
+
 import { notFound } from "next/navigation";
 import { PARTYKIT_URL } from "@/app/env";
 
 import { randomUUID } from "crypto";
 import { Game } from "../GameLogic/logic";
-import P5SketchContainer from "@/components/_Game/P5SketchContainer";
-import { gameSketch } from "../GameLogic/p5sketch";
 import GameL from "@/components/_Game/GameL";
 
 export default async function PollPage(props: {
@@ -22,6 +21,7 @@ export default async function PollPage(props: {
   });
 
   if (!req.ok) {
+    console.log(req.status);
     if (req.status === 404) {
       notFound();
     } else {

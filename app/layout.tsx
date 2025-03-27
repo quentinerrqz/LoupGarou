@@ -1,8 +1,8 @@
-import "./globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: "Loup Garou",
@@ -11,14 +11,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} h-screen`}>
-       {children}
-      </body>
+      <body className={`${inter.variable} h-screen`}>{children}</body>
     </html>
   );
 }

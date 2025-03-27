@@ -8,6 +8,7 @@ export async function createRoom() {
   const randomId = () => Math.random().toString(36).substring(2, 10);
   const id = randomId();
 
+  
   try {
     const req = await fetch(`${PARTYKIT_URL}/party/${id}`, {
       method: "POST",
@@ -16,7 +17,7 @@ export async function createRoom() {
         "Content-Type": "application/json",
       },
     });
-    
+    console.log("Room created: ",req);
   } catch (error) {
     console.error("Error creating room:", error);
     return notFound();

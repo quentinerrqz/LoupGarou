@@ -1,4 +1,5 @@
 "use client";
+import { PARTYKIT_URL } from "@/app/env";
 import React, { FC } from "react";
 
 type RoomButtonProps = {

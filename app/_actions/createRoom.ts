@@ -16,6 +16,7 @@ export async function createRoom() {
         "Content-Type": "application/json",
       },
     });
+    
   } catch (error) {
     console.error("Error creating room:", error);
     return notFound();

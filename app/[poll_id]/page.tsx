@@ -1,11 +1,10 @@
 "use server";
 
-import { notFound } from "next/navigation";
-import { PARTYKIT_URL } from "@/app/env";
 
 import { randomUUID } from "crypto";
 import { Game, initialgameState } from "../GameLogic/logic";
 import GameL from "@/components/_Game/GameL";
+import { getRoomData } from "../_actions/getRoomData";
 
 export default async function PollPage(props: {
   params: Promise<{ poll_id: string }>;
@@ -13,28 +12,15 @@ export default async function PollPage(props: {
   const params = await props.params;
   const pollId = params.poll_id;
 
-  // const req = await fetch(`${PARTYKIT_URL}/party/${pollId}`, {
-  //   method: "GET",
-  //   next: {
-  //     revalidate: 0,
-  //   },
-  // });
 
-  // if (!req.ok) {
-  //   console.log(req.status);
-  //   if (req.status === 404) {
-  //     notFound();
-  //   } else {
-  //     return notFound();
-  //   }
-  // }
+  
 
-  // const game = (await req.json()) as Game;
   const userId = randomUUID();
 
+  const game= await getRoomData(pollId);
   return (
     <div className="h-full w-full">
-      <GameL game={initialgameState} roomId={pollId} userId={userId} />
+      <GameL game={game} roomId={pollId} userId={userId} />
     </div>
   );
 }

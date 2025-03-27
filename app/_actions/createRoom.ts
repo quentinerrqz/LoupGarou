@@ -8,13 +8,13 @@ import { initialgameState } from "../GameLogic/logic";
     const randomId = () => Math.random().toString(36).substring(2, 10);
     const id = randomId();
 
-    await fetch(`${PARTYKIT_URL}/party/${id}`, {
-      method: "POST",
-      body: JSON.stringify(initialgameState),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    // await fetch(`${PARTYKIT_URL}/party/${id}`, {
+    //   method: "POST",
+    //   body: JSON.stringify(initialgameState),
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //   },
+    // });
 
     redirect(`/${id}`);
   }

@@ -116,7 +116,7 @@ export const gameUpdater = (state: Game, action: Action) => {
 };
 
 // Etat initial du jeu
-export const initialgameState = {
+export const initialgameState: Game= {
   users: [],
   page: "lobby",
   time: 0,

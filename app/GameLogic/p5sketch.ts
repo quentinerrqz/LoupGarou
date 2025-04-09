@@ -2,6 +2,7 @@
 
 import p5Types from "p5";
 import game, { sendToGame } from "../_Hooks/useGameRoom";
+import { MyPlayer, Player } from "./Player";
 
 // can go in "./types/global.d.ts"
 type P5jsContainerRef = HTMLDivElement;
@@ -20,20 +21,23 @@ export const cnv = {
 };
 
 export const gameSketch: P5jsSketch = (p, parentRef, userId) => {
-  let direction: string | null = null;
+  let player: any;
   p.setup = () => {
     cnv.w = parentRef.clientWidth;
     cnv.h = parentRef.clientHeight;
     const canvas = p.createCanvas(cnv.w, cnv.h);
     canvas.parent(parentRef);
 
+    player = new MyPlayer(userId, "Player", false, false, false);
     console.log("game sketch");
   };
 
   p.draw = () => {
     p.background(51);
-    if (direction) {
-      sendToGame({ type: "move", userId, direction });
+
+    if (player) {
+      player.move();
+      // player.draw(p);
     }
     game.users.forEach((user) => {
       const x = user.position?.x ?? 0;
@@ -46,20 +50,16 @@ export const gameSketch: P5jsSketch = (p, parentRef, userId) => {
     });
   };
 
-  p.keyPressed = () => {
-    if (p.keyCode === p.UP_ARROW) {
-      direction = "up";
-    } else if (p.keyCode === p.DOWN_ARROW) {
-      direction = "down";
-    } else if (p.keyCode === p.RIGHT_ARROW) {
-      direction = "right";
-    } else if (p.keyCode === p.LEFT_ARROW) {
-      direction = "left";
+  p.keyPressed = (e: KeyboardEvent) => {
+    if (player) {
+      player.keyPressed(e);
     }
   };
 
-  p.keyReleased = () => {
-    direction = null;
+  p.keyReleased = (e: KeyboardEvent) => {
+    if (player) {
+      player.keyReleased(e);
+    }
   };
 
   p.windowResized = () => {

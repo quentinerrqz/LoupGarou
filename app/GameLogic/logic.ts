@@ -1,12 +1,10 @@
-
-
 export type User = {
   name: string | undefined;
-  id: string| undefined ;
+  id: string | undefined;
   isReady: boolean | undefined;
   isSpectator: boolean | undefined;
-  isAdmin: boolean| undefined;
-  position: { x: number; y: number }| undefined;
+  isAdmin: boolean | undefined;
+  position: { x: number; y: number } | undefined;
 };
 
 export type Game = {
@@ -27,7 +25,7 @@ export type Action = {
   rolesSketch?: string;
   random?: boolean;
   position?: { x: number; y: number };
-  direction?: string;
+  dirAngle?: number;
 };
 
 export const gameUpdater = (state: Game, action: Action) => {
@@ -45,7 +43,7 @@ export const gameUpdater = (state: Game, action: Action) => {
             isReady: false,
             isSpectator: isSpectator,
             isAdmin: state.users.length === 0,
-            position: {x: 0, y: 0},
+            position: { x: 0, y: 0 },
           },
         ],
       };
@@ -59,7 +57,7 @@ export const gameUpdater = (state: Game, action: Action) => {
         ),
       };
     }
-    
+
     // case "updateUser": {
     //   return {
     //     ...state,
@@ -69,7 +67,6 @@ export const gameUpdater = (state: Game, action: Action) => {
     //   };
     // }
 
-   
     // Permets de changer la page du jeu
     case "updatePage": {
       return {
@@ -92,8 +89,12 @@ export const gameUpdater = (state: Game, action: Action) => {
             ? {
                 ...u,
                 position: {
-                  x: (u.position?.x ?? 0) + (action.direction === "right" ? 10 : action.direction === "left" ? -10 : 0),
-                  y: (u.position?.y ?? 0) + (action.direction === "down" ? 10 : action.direction === "up" ? -10 : 0),
+                  x:
+                    (u.position?.x ?? 0) +
+                    Math.cos((action.dirAngle ?? 0) * (Math.PI / 180)) * 9,
+                  y:
+                  (u.position?.y ?? 0) +
+                    Math.sin((action.dirAngle ?? 0) * (Math.PI / 180)) * 9,
                 },
               }
             : u
@@ -101,22 +102,13 @@ export const gameUpdater = (state: Game, action: Action) => {
       };
     }
 
-
-    case "updatePosition": {
-      return {
-        ...state,
-        users: state.users.map((u) =>
-          u.id === action.userId ? { ...u, position: action.position } : u
-        ),
-      };
-    }
     default:
       return state;
   }
 };
 
 // Etat initial du jeu
-export const initialgameState: Game= {
+export const initialgameState: Game = {
   users: [],
   page: "lobby",
   time: 0,

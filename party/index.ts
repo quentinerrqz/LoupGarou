@@ -1,4 +1,5 @@
-import { Game, gameUpdater } from "@/app/GameLogic/logic";
+import game from "@/app/_Hooks/useGameRoom";
+import { Game, gameUpdater, Player } from "@/app/GameLogic/logic";
 import type * as Party from "partykit/server";
 
 export default class Server implements Party.Server {
@@ -36,10 +37,26 @@ export default class Server implements Party.Server {
       userId: sender.id,
     };
     // Mise à jour de l'état de la partie en fonction de l'action reçue
+
     this.gameState = gameUpdater(this.gameState, action) as Game;
-    
+
+    const messageType = action.type;
+    let messageToSend;
+    if (messageType === "move") {
+      messageToSend = {
+        type: "move",
+        content: { ...action },
+      };
+    } else {
+      messageToSend = {
+        type: messageType,
+        content: this.gameState,
+      };
+    }
+    console.log("messageToSend", messageToSend);
+
     // Envoi du nouvel état de la partie à tous les joueurs
-    this.room.broadcast(JSON.stringify(this.gameState));
+    this.room.broadcast(JSON.stringify(messageToSend));
     // Sauvegarde de l'état de la partie
     this.savePoll();
   }
@@ -95,23 +112,33 @@ export default class Server implements Party.Server {
     // const existingUser = this.gameState.users.find((user) => user === userId);
 
     // Ajout d'un joueur
-    this.gameState.users = gameUpdater(this.gameState, {
+
+    this.gameState = gameUpdater(this.gameState, {
       type: "addUser",
       userId: userId,
-    }).users;
+    }) as Game;
 
-    this.room.broadcast(JSON.stringify(this.gameState));
+    const messageToSend = {
+      type: "addUser",
+      content: this.gameState,
+    };
+    this.room.broadcast(JSON.stringify(messageToSend));
   }
 
   // S'exécute à chaque fois qu'un joueur se déconnecte
   async onClose(connection: Party.Connection) {
     if (!this.gameState) return;
-    this.gameState.users = gameUpdater(this.gameState, {
+    this.gameState = gameUpdater(this.gameState, {
       type: "removeUser",
       userId: connection.id as string,
-    }).users;
+    }) as Game;
 
-    this.room.broadcast(JSON.stringify(this.gameState));
+    const messageToSend = {
+      type: "removeUser",
+      content: this.gameState,
+    };
+
+    this.room.broadcast(JSON.stringify(messageToSend));
   }
 
   // S'exécute lorsque la room est créée
@@ -124,7 +151,6 @@ export default class Server implements Party.Server {
       await this.room.storage.put<Game>("game", this.gameState);
     }
   }
-
 }
 
 Server satisfies Party.Worker;

@@ -85,7 +85,7 @@ export class MyPlayer extends Player {
   move = () => {
     if (this.NSEW.NS !== 0 || this.NSEW.EW !== 0) {
       const angle = Math.atan2(this.NSEW.NS, this.NSEW.EW) * (180 / Math.PI);
-      console.log("angle", angle);
+     
       sendToGame({ type: "move", userId: this.id, dirAngle: angle });
     }
   };

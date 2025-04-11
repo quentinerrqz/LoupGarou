@@ -1,6 +1,5 @@
 "use client";
-import { PARTYKIT_URL } from "@/app/env";
-import React, { FC } from "react";
+import React from "react";
 
 type RoomButtonProps = {
   create: () => void;

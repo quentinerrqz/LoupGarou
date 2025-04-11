@@ -4,11 +4,16 @@ export type User = {
   isReady: boolean | undefined;
   isSpectator: boolean | undefined;
   isAdmin: boolean | undefined;
-  position: { x: number; y: number } | undefined;
 };
 
+export type Player = {
+  id: string | undefined;
+  name: string | undefined;
+  position: { x: number; y: number } | undefined;
+};
 export type Game = {
   users: User[];
+  players: Player[];
   page: "lobby" | "play" | "end";
   time: number;
   countdown: number;
@@ -33,19 +38,23 @@ export const gameUpdater = (state: Game, action: Action) => {
     // Ajout d'un utilisateur
     case "addUser": {
       const isSpectator = state.page !== "lobby";
+      const name = randomName();
+      const newUser: User = {
+        name,
+        id: action.userId,
+        isReady: false,
+        isSpectator,
+        isAdmin: false,
+      };
+      const newPlayer: Player = {
+        id: action.userId,
+        name,
+        position: { x: 0, y: 0 },
+      };
       return {
         ...state,
-        users: [
-          ...state.users,
-          {
-            name: randomName(),
-            id: action.userId,
-            isReady: false,
-            isSpectator: isSpectator,
-            isAdmin: state.users.length === 0,
-            position: { x: 0, y: 0 },
-          },
-        ],
+        users: [...state.users, newUser],
+        players: [...state.players, newPlayer],
       };
     }
     // Suppression d'un utilisateur
@@ -54,6 +63,9 @@ export const gameUpdater = (state: Game, action: Action) => {
         ...state,
         users: state.users.filter(
           (u) => action.userId && u.id !== action.userId
+        ),
+        players: state.players.filter(
+          (p) => action.userId && p.id !== action.userId
         ),
       };
     }
@@ -84,20 +96,20 @@ export const gameUpdater = (state: Game, action: Action) => {
     case "move": {
       return {
         ...state,
-        users: state.users.map((u) =>
-          u.id === action.userId
+        players: state.players.map((p) =>
+          p.id === action.userId
             ? {
-                ...u,
+                ...p,
                 position: {
                   x:
-                    (u.position?.x ?? 0) +
+                    (p.position?.x ?? 0) +
                     Math.cos((action.dirAngle ?? 0) * (Math.PI / 180)) * 9,
                   y:
-                  (u.position?.y ?? 0) +
+                    (p.position?.y ?? 0) +
                     Math.sin((action.dirAngle ?? 0) * (Math.PI / 180)) * 9,
                 },
               }
-            : u
+            : p
         ),
       };
     }
@@ -110,6 +122,7 @@ export const gameUpdater = (state: Game, action: Action) => {
 // Etat initial du jeu
 export const initialgameState: Game = {
   users: [],
+  players: [],
   page: "lobby",
   time: 0,
   countdown: 0,

@@ -1,7 +1,7 @@
 "use client";
 
 import p5Types from "p5";
-import game, { sendToGame } from "../_Hooks/useGameRoom";
+import game from "../_Hooks/useGameRoom";
 import { MyPlayer, Player } from "./Player";
 
 // can go in "./types/global.d.ts"
@@ -21,44 +21,44 @@ export const cnv = {
 };
 
 export const gameSketch: P5jsSketch = (p, parentRef, userId) => {
-  let player: any;
+  let player1: any;
   p.setup = () => {
     cnv.w = parentRef.clientWidth;
     cnv.h = parentRef.clientHeight;
     const canvas = p.createCanvas(cnv.w, cnv.h);
     canvas.parent(parentRef);
-
-    player = new MyPlayer(userId, "Player", false, false, false);
-    console.log("game sketch");
+    console.log(game.players,game.users);
+    player1 = new MyPlayer(userId, "Player", false, false, false);
+    
   };
 
   p.draw = () => {
     p.background(51);
 
-    if (player) {
-      player.move();
+    if (player1) {
+      player1.move();
       // player.draw(p);
     }
-    game.users.forEach((user) => {
-      const x = user.position?.x ?? 0;
-      const y = user.position?.y ?? 0;
+    game.players.forEach((player) => {
+      const x = player.position?.x ?? 0;
+      const y = player.position?.y ?? 0;
       p.fill(255);
       p.beginShape();
       p.ellipse(x, y, 24, 24);
-      p.text(user.name ?? "Unknown", x, y);
+      p.text(player.name ?? "Unknown", x, y);
       p.endShape();
     });
   };
 
   p.keyPressed = (e: KeyboardEvent) => {
-    if (player) {
-      player.keyPressed(e);
+    if (player1) {
+      player1.keyPressed(e);
     }
   };
 
   p.keyReleased = (e: KeyboardEvent) => {
-    if (player) {
-      player.keyReleased(e);
+    if (player1) {
+      player1.keyReleased(e);
     }
   };
 

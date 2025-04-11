@@ -2,11 +2,11 @@
 import usePartySocket from "partysocket/react";
 import { useState } from "react";
 import { PARTYKIT_HOST } from "../env";
-import { Action, Game, User } from "../GameLogic/logic";
-
+import { Action, Game, gameUpdater, Player, User } from "../GameLogic/logic";
 
 interface game {
   users: User[];
+  players: Player[];
   page: string;
   time: number;
   countdown: number;
@@ -14,33 +14,55 @@ interface game {
 }
 const game: game = {
   users: [],
-  
- 
+  players: [],
   page: "lobby",
   time: 0,
   countdown: 0,
   update: (newState: Game) => {
     game.users = newState.users;
+    game.players = newState.players;
     game.page = newState.page;
     game.time = newState.time;
     game.countdown = newState.countdown;
   },
 };
 
+type Message = {
+  type: string;
+  content: Game | Action;
+};
+
 let socket: any;
+
+const typeNotToRender = ["move"];
 
 //React hook pour la gestion du jeu via l'interface utilisateur
 export const useGameRoom = (roomId: string, game1: Game, userId: string) => {
   const [gameState, setGameState] = useState<Game>(game1);
-// Établie la connexion avec le serveur
+  console.log("useGameRoom", gameState);
+  // Établie la connexion avec le serveur
   socket = usePartySocket({
     host: PARTYKIT_HOST,
     room: roomId,
     id: userId,
     onMessage(event) {
-      const message = JSON.parse(event.data) as Game;
-      setGameState(message);
-      game.update(message);
+      const message = JSON.parse(event.data) as Message;
+      if (typeNotToRender.includes(message.type)) {
+        const action = message.content as Action;
+        const oldGameState = {
+          users: game.users,
+          players: game.players,
+          page: game.page,
+          time: game.time,
+          countdown: game.countdown,
+        };
+        const newGameState = gameUpdater(oldGameState as Game, action) as Game; // Met à jour l'état du jeu en fonction de l'action reçue
+        game.update(newGameState); // Met à jour l'état du jeu
+        return;
+      } else {
+        setGameState(message.content as Game);
+        game.update(message.content as Game); // Met à jour l'état du jeu
+      }
     },
   });
 

@@ -26,7 +26,7 @@ const P5SketchContainer = memo(function P5SketchContainer({
 }: Props) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [isMounted, setIsMounted] = useState<boolean>(false);
-  console.log("client game display");
+  
   // on mount
   useEffect(() => {
     setIsMounted(true);
@@ -52,7 +52,7 @@ const P5SketchContainer = memo(function P5SketchContainer({
     initP5();
     return (p5instance as p5Types | null)?.remove();
   }, [isMounted, gameSketch, userId]);
-  return <div className="z-40 h-full w-full" ref={parentRef}></div>;
+  return <div className=" h-full w-full" ref={parentRef}></div>;
 });
 
 export default P5SketchContainer;

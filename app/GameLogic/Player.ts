@@ -62,6 +62,8 @@ export class MyPlayer extends Player {
       this.NSEW.W = -1;
       this.NSEW.EW = -1;
     }
+    console.log("keyPressed", e.key);
+    this.switchDirection();
   };
 
   keyReleased = (e: KeyboardEvent) => {
@@ -81,20 +83,25 @@ export class MyPlayer extends Player {
       this.NSEW.W = 0;
       this.NSEW.EW = this.NSEW.E;
     }
+    console.log("keyReleased", e.key);
+    this.switchDirection();
   };
-  move = () => {
+  switchDirection = () => {
+    let angle = 0;
+    let velocity = 0;
     if (this.NSEW.NS !== 0 || this.NSEW.EW !== 0) {
-      const angle = Math.atan2(this.NSEW.NS, this.NSEW.EW) ;
-      
-      const newX = this.position!.x + Math.cos(angle) *7;
-      const newY = this.position!.y + Math.sin(angle) *7;
-      this.position = { x: newX, y: newY };
-      sendToGame({
-        type: "move",
-        userId: this.id,
-        position: { x: newX, y: newY },
-      });
+      angle = Math.atan2(this.NSEW.NS, this.NSEW.EW);
+      velocity = 5;
+
       // sendToGame({ type: "move", userId: this.id, dirAngle: angle });
     }
+    sendToGame({
+      type: "move",
+      userId: this.id,
+      position: this.position,
+      dirAngle: angle,
+      velocity: velocity,
+      time: Date.now(),
+    });
   };
 }

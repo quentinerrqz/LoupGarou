@@ -8,8 +8,10 @@ export type User = {
 
 export type Player = {
   id: string | undefined;
-  name: string | undefined;
-  position: { x: number; y: number } | undefined;
+  startPosition: { x: number; y: number } | undefined;
+  startTime: number | undefined;
+  dirangle: number | undefined;
+  velocity: number | undefined;
 };
 export type Game = {
   users: User[];
@@ -25,12 +27,13 @@ export type Action = {
   time?: number;
   isReady?: boolean;
   page?: string;
-
   name?: string;
+
   rolesSketch?: string;
-  random?: boolean;
+
   position?: { x: number; y: number };
   dirAngle?: number;
+  velocity?: number;
 };
 
 export const gameUpdater = (state: Game, action: Action) => {
@@ -48,8 +51,10 @@ export const gameUpdater = (state: Game, action: Action) => {
       };
       const newPlayer: Player = {
         id: action.userId,
-        name,
-        position: { x: 0, y: 0 },
+        startPosition: { x: 0, y: 0 },
+        startTime: 0,
+        dirangle: 0,
+        velocity: 0,
       };
       return {
         ...state,
@@ -94,15 +99,21 @@ export const gameUpdater = (state: Game, action: Action) => {
       };
     }
     case "move": {
-
-      
- return {
+      const userId = action.userId;
+      const dirAngle = action.dirAngle;
+      const velocity = action.velocity;
+      const startPosition = action.position;
+      const startTime = action.time;
+      return {
         ...state,
         players: state.players.map((p) =>
-          p.id === action.userId
+          p.id === userId
             ? {
                 ...p,
-                position: action.position
+                startPosition: startPosition,
+                dirangle: dirAngle,
+                velocity: velocity,
+                startTime: startTime,
               }
             : p
         ),

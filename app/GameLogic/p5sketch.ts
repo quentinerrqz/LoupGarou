@@ -27,25 +27,33 @@ export const gameSketch: P5jsSketch = (p, parentRef, userId) => {
     cnv.h = parentRef.clientHeight;
     const canvas = p.createCanvas(cnv.w, cnv.h);
     canvas.parent(parentRef);
-    console.log(game.players,game.users);
+    console.log(game.players, game.users);
     player1 = new MyPlayer(userId, "Player", false, false, false);
-    
   };
 
   p.draw = () => {
     p.background(51);
-
-    if (player1) {
-      player1.move();
-      // player.draw(p);
-    }
     game.players.forEach((player) => {
-      const x = player.position?.x ?? 0;
-      const y = player.position?.y ?? 0;
+      const username = game.users.filter((user) => user.id === player.id)[0].name;
+
+      const startPosition = player.startPosition || { x: 0, y: 0 };
+      const playerVelocity = player.velocity || 0;
+      const playerAngle = player.dirangle || 0;
+      const playerStartTime = player.startTime || Date.now();
+      const pos = mru(
+        startPosition.x,
+        startPosition.y,
+        playerVelocity,
+        playerStartTime,
+        playerAngle
+      );
+      if (player.id === player1.id) {
+        player1.position = pos;
+      }
       p.fill(255);
       p.beginShape();
-      p.ellipse(x, y, 24, 24);
-      p.text(player.name ?? "Unknown", x, y);
+      p.ellipse(pos.x, pos.y, 24, 24);
+      p.text(username ?? "Unknown", pos.x, pos.y + 20);
       p.endShape();
     });
   };
@@ -68,3 +76,16 @@ export const gameSketch: P5jsSketch = (p, parentRef, userId) => {
     p.resizeCanvas(cnv.w, cnv.h);
   };
 };
+
+function mru(
+  startX: number,
+  startY: number,
+  velocity: number,
+  startTime: number,
+  angle: number
+) {
+  const time = (Date.now() - startTime) / 20; // Convert milliseconds to seconds
+  const x = startX + velocity * Math.cos(angle) * time;
+  const y = startY + velocity * Math.sin(angle) * time;
+  return { x, y };
+}

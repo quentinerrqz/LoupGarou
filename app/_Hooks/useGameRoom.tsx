@@ -66,7 +66,7 @@ export const useGameRoom = (roomId: string, game1: Game, userId: string) => {
   });
 
   const dispatch = (action: Action) => {
-    socket.send(JSON.stringify(action)); // Envoie l'action au serveur
+    socket.send(JSON.stringify({...action,sendTime:Date.now()})); // Envoie l'action au serveur
   };
 
   return {

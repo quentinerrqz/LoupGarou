@@ -34,13 +34,15 @@ export const gameSketch: P5jsSketch = (p, parentRef, userId) => {
   p.draw = () => {
     p.background(51);
     game.players.forEach((player) => {
-      const username = game.users.filter((user) => user.id === player.id)[0].name;
+      const username = game.users.filter((user) => user.id === player.id)[0]
+        .name;
 
       const startPosition = player.startPosition || { x: 0, y: 0 };
       const playerVelocity = player.velocity || 0;
       const playerAngle = player.dirangle || 0;
       const playerStartTime = player.startTime || Date.now();
       const pos = mru(
+        player.ping || 0,
         startPosition.x,
         startPosition.y,
         playerVelocity,
@@ -78,13 +80,14 @@ export const gameSketch: P5jsSketch = (p, parentRef, userId) => {
 };
 
 function mru(
+  ping: number,
   startX: number,
   startY: number,
   velocity: number,
   startTime: number,
   angle: number
 ) {
-  const time = (Date.now() - startTime) / 20; // Convert milliseconds to seconds
+  const time = (Date.now() - startTime - ping) / 20; // Convert milliseconds to seconds
   const x = startX + velocity * Math.cos(angle) * time;
   const y = startY + velocity * Math.sin(angle) * time;
   return { x, y };

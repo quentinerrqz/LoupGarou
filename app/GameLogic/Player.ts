@@ -97,6 +97,7 @@ export class MyPlayer extends Player {
     }
     sendToGame({
       type: "move",
+      sendTime: Date.now(),
       userId: this.id,
       position: this.position,
       dirAngle: angle,

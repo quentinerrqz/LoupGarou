@@ -8,6 +8,7 @@ export type User = {
 
 export type Player = {
   id: string | undefined;
+  ping: number | undefined;
   startPosition: { x: number; y: number } | undefined;
   startTime: number | undefined;
   dirangle: number | undefined;
@@ -23,6 +24,7 @@ export type Game = {
 
 export type Action = {
   type: string;
+  sendTime: number;
   userId?: string;
   time?: number;
   isReady?: boolean;
@@ -37,6 +39,14 @@ export type Action = {
 };
 
 export const gameUpdater = (state: Game, action: Action) => {
+  // Met à jour le ping du joueur
+  const player= state.players.find((p) => p.id === action.userId);
+  if (player) {
+   
+    player.ping = Date.now() - action.sendTime;
+    console.log("ping", player.ping);
+    
+  }
   switch (action.type) {
     // Ajout d'un utilisateur
     case "addUser": {
@@ -51,6 +61,7 @@ export const gameUpdater = (state: Game, action: Action) => {
       };
       const newPlayer: Player = {
         id: action.userId,
+        ping: undefined,
         startPosition: { x: 0, y: 0 },
         startTime: 0,
         dirangle: 0,

@@ -31,11 +31,14 @@ export default class Server implements Party.Server {
 
   // S'exécute à chaque fois qu'un utilisateur envoie un message ( avec socket.send ) au serveur
   async onMessage(message: string, sender: Party.Connection) {
+    
     if (!this.gameState) return;
     const action = {
       ...JSON.parse(message),
       userId: sender.id,
     };
+    console.log("action", action);
+
     // Mise à jour de l'état de la partie en fonction de l'action reçue
 
     this.gameState = gameUpdater(this.gameState, action) as Game;
@@ -53,7 +56,6 @@ export default class Server implements Party.Server {
         content: this.gameState,
       };
     }
-    console.log("messageToSend", messageToSend);
 
     // Envoi du nouvel état de la partie à tous les joueurs
     this.room.broadcast(JSON.stringify(messageToSend));
@@ -116,6 +118,7 @@ export default class Server implements Party.Server {
     this.gameState = gameUpdater(this.gameState, {
       type: "addUser",
       userId: userId,
+      sendTime: Date.now(),
     }) as Game;
 
     const messageToSend = {
@@ -131,6 +134,7 @@ export default class Server implements Party.Server {
     this.gameState = gameUpdater(this.gameState, {
       type: "removeUser",
       userId: connection.id as string,
+      sendTime: Date.now(),
     }) as Game;
 
     const messageToSend = {

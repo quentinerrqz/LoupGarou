@@ -94,24 +94,37 @@ export const gameUpdater = (state: Game, action: Action) => {
       };
     }
     case "move": {
-      return {
+
+      
+ return {
         ...state,
         players: state.players.map((p) =>
           p.id === action.userId
             ? {
                 ...p,
-                position: {
-                  x:
-                    (p.position?.x ?? 0) +
-                    Math.cos((action.dirAngle ?? 0) * (Math.PI / 180)) * 9,
-                  y:
-                    (p.position?.y ?? 0) +
-                    Math.sin((action.dirAngle ?? 0) * (Math.PI / 180)) * 9,
-                },
+                position: action.position
               }
             : p
         ),
       };
+      // return {
+      //   ...state,
+      //   players: state.players.map((p) =>
+      //     p.id === action.userId
+      //       ? {
+      //           ...p,
+      //           position: {
+      //             x:
+      //               (p.position?.x ?? 0) +
+      //               Math.cos((action.dirAngle ?? 0) * (Math.PI / 180)) * 9,
+      //             y:
+      //               (p.position?.y ?? 0) +
+      //               Math.sin((action.dirAngle ?? 0) * (Math.PI / 180)) * 9,
+      //           },
+      //         }
+      //       : p
+      //   ),
+      // };
     }
 
     default:

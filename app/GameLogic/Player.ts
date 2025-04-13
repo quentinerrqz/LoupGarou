@@ -84,9 +84,17 @@ export class MyPlayer extends Player {
   };
   move = () => {
     if (this.NSEW.NS !== 0 || this.NSEW.EW !== 0) {
-      const angle = Math.atan2(this.NSEW.NS, this.NSEW.EW) * (180 / Math.PI);
-     
-      sendToGame({ type: "move", userId: this.id, dirAngle: angle });
+      const angle = Math.atan2(this.NSEW.NS, this.NSEW.EW) ;
+      
+      const newX = this.position!.x + Math.cos(angle) *7;
+      const newY = this.position!.y + Math.sin(angle) *7;
+      this.position = { x: newX, y: newY };
+      sendToGame({
+        type: "move",
+        userId: this.id,
+        position: { x: newX, y: newY },
+      });
+      // sendToGame({ type: "move", userId: this.id, dirAngle: angle });
     }
   };
 }

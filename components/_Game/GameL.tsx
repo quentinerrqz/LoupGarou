@@ -4,7 +4,7 @@ import { Game } from "@/app/GameLogic/logic";
 import React, { useMemo } from "react";
 import P5SketchContainer from "./P5SketchContainer";
 import { gameSketch } from "@/app/GameLogic/p5sketch";
-import InterfaceL from "./_Interface/InterfaceL";
+import InterfaceL from "./InterfaceL";
 
 type Props = {
   roomId: string;
@@ -18,7 +18,7 @@ const GameL = ({ roomId, game, userId }: Props) => {
   return (
     <div className="relative h-full w-full ">
       <P5SketchContainer gameSketch={gameSketch} userId={userId} />
-      <InterfaceL />
+      <InterfaceL gameState={gameState} dispatch={dispatch} userId={userId} />
     </div>
   );
 };

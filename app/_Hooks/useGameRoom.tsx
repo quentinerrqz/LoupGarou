@@ -39,7 +39,6 @@ const typeNotToRender = ["move"];
 //React hook pour la gestion du jeu via l'interface utilisateur
 export const useGameRoom = (roomId: string, game1: Game, userId: string) => {
   const [gameState, setGameState] = useState<Game>(game1);
-  console.log("useGameRoom", gameState);
   // Établie la connexion avec le serveur
   socket = usePartySocket({
     host: PARTYKIT_HOST,

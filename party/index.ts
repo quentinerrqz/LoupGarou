@@ -1,160 +1,299 @@
-import game from "@/app/_Hooks/useGameRoom";
-import { Game, gameUpdater, Player } from "@/app/GameLogic/logic";
 import type * as Party from "partykit/server";
 
-export default class Server implements Party.Server {
-  constructor(readonly room: Party.Room) {}
+import { GameRecord } from "@/app/lib/game/schema";
 
-  // poll: Poll | undefined;
-  gameState: Game | undefined;
+import { IPlayer } from "@/app/lib/game/schema/PlayerRecord";
+import {
+  ClientToServerMessage,
+  ClientUpdateFromServer,
+  HistoryEntry,
+  RecordId,
+  ServerRecord,
+  ServerToClientMessage,
+  StoreSnapshot,
+} from "@/app/lib/game/types";
 
-  // S'exécute à chaque fois qu'un utilisateur envoie une requête HTTP
-  async onRequest(req: Party.Request) {
-    if (req.method === "POST") {
-      const game = (await req.json()) as Game;
-      // Initialisation de l'état de la partie / room
-      this.gameState = game;
-      this.savePoll();
-    }
+import { FRAME_LENGTH, SERVER_TICK_LENGTH } from "@/app/lib/game/constants";
+import { updatePlayer } from "@/app/shared/updatePlayer";
 
-    if (this.gameState) {
-      return new Response(JSON.stringify(this.gameState), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+export default class SyncParty implements Party.Server {
+  records: Record<RecordId<GameRecord>, ServerRecord<GameRecord>> = {};
+  clients = new Map<Party.Connection<unknown>, IPlayer["id"]>();
 
-    return new Response("Not found", { status: 404 });
-  }
-
-  //////////ON MESSAGE SYSTEME //////////
-
-  // S'exécute à chaque fois qu'un utilisateur envoie un message ( avec socket.send ) au serveur
-  async onMessage(message: string, sender: Party.Connection) {
-    
-    if (!this.gameState) return;
-    const action = {
-      ...JSON.parse(message),
-      userId: sender.id,
+  getSnapshot = (): {
+    store: StoreSnapshot<GameRecord>;
+    // schema: SerializedSchema;
+  } => {
+    return {
+      store: Object.fromEntries(
+        Object.entries(this.records)
+          .filter(([_, { record }]) => !!record)
+          .map(([id, { record }]) => [id, record!])
+      ) as unknown as StoreSnapshot<GameRecord>,
     };
-    console.log("action", action);
+  };
 
-    // Mise à jour de l'état de la partie en fonction de l'action reçue
-
-    this.gameState = gameUpdater(this.gameState, action) as Game;
-
-    const messageType = action.type;
-    let messageToSend;
-    if (messageType === "move") {
-      messageToSend = {
-        type: "move",
-        content: { ...action },
-      };
+  updateRecord = (record: GameRecord) => {
+    const previous = this.records[record.id];
+    if (previous) {
+      this.records[record.id] = { clock: previous.clock + 1, record };
     } else {
-      messageToSend = {
-        type: messageType,
-        content: this.gameState,
-      };
+      this.records[record.id] = { clock: this.clock, record };
     }
+  };
 
-    // Envoi du nouvel état de la partie à tous les joueurs
-    this.room.broadcast(JSON.stringify(messageToSend));
-    // Sauvegarde de l'état de la partie
-    this.savePoll();
+  getRecordById = <T extends GameRecord>(id: RecordId<T>) => {
+    return this.records[id] as ServerRecord<T>;
+  };
+
+  constructor(readonly room: Party.Room) {
+    let lastTime = 0;
+    this.tick = setInterval(() => {
+      const now = Date.now();
+      const elapsed = now - lastTime;
+      lastTime = now;
+      this.onTick(elapsed);
+    }, SERVER_TICK_LENGTH);
   }
 
-  // S'exécute à chaque fois qu'une alarme est déclenchée
-  // async onAlarm() {
-  //   if (!this.gameState) return;
+  tick: any;
+  clock = 0;
+  hasAlarm = false;
 
-  //   // Gestion du compte à rebours
-  //   if (this.gameState.countdown > 0) {
-  //     this.gameState.countdown--;
-  //     this.room.broadcast(JSON.stringify(this.gameState));
-  //     this.room.storage.setAlarm(Date.now() + 1 * 1000);
-  //   } else if (this.gameState.users.every((u) => u.isReady)) {
-  //     // Si tout le monde est prêt et que le compte à rebours est terminé on attribue aléatoirement les rôles aux joueurs et on lance la partie
-  //     this.gameState = gameUpdater(this.gameState, {
-  //       type: "updatePage",
-  //       page: "play",
-  //     }) as Game;
-  //     // Randomize la liste des rôles
-  //     this.gameState = gameUpdater(this.gameState, {
-  //       type: "mixRoles",
-  //     }) as Game;
-  //     // Fait correspondre un à un les rôles aux joueurs
-  //     this.gameState = gameUpdater(this.gameState, {
-  //       type: "updateUsersRoles",
-  //     }) as Game;
-  //     this.gameState = gameUpdater(this.gameState, {
-  //       type: "updateUsersPositions",
-  //       random: true,
-  //     }) as Game;
-  //     this.room.broadcast(JSON.stringify(this.gameState));
-  //     this.savePoll();
-  //   }
-  // }
+  async onConnect(connection: Party.Connection<unknown>) {
+    connection.send(
+      JSON.stringify({
+        type: "init",
+        clock: this.clock,
+        snapshot: this.getSnapshot(),
+      })
+    );
+  }
 
-  //////////ON CONNECT ET ON CLOSE //////////
+  onClose(connection: Party.Connection<unknown>): void | Promise<void> {
+    const clientId = this.clients.get(connection);
+    if (clientId) {
+      this.removePlayer(clientId);
+    }
+    this.clients.delete(connection);
+  }
 
-  // S'exécute à chaque fois qu'un joueur se connecte
-  onConnect(
-    connection: Party.Connection,
-    { request }: Party.ConnectionContext
+  private removePlayer(clientId: IPlayer["id"]) {
+    const clientPlayerRecord = this.getRecordById(clientId);
+
+    if (clientPlayerRecord) {
+      const { record } = clientPlayerRecord;
+      if (record) {
+        this.deleteRecord(record);
+        const update: HistoryEntry<GameRecord> = {
+          changes: {
+            added: {},
+            updated: {},
+            removed: {
+              [record.id]: record,
+            },
+          },
+          source: "remote",
+        };
+
+        this.pendingUpdates.push({ clientId: "server", updates: [update] });
+      }
+    }
+  }
+
+  private applyUpdate(
+    clock: number,
+    updates: HistoryEntry<GameRecord>[]
+  ): HistoryEntry<GameRecord> {
+    const ourUpdate: HistoryEntry<GameRecord> = {
+      changes: {
+        added: {},
+        updated: {},
+        removed: {},
+      },
+      source: "remote",
+    };
+
+    for (const update of updates) {
+      const {
+        changes: { added, updated, removed },
+      } = update as HistoryEntry<GameRecord>;
+      // Try to merge the update into our local store
+      for (const record of Object.values(added)) {
+        if (this.records[record.id]?.clock > clock) {
+          // noop, our copy is newer
+          console.log("throwing out add record, ours is newer");
+        } else {
+          this.records[record.id] = { clock, record };
+          ourUpdate.changes.added[record.id] = record;
+        }
+      }
+
+      for (const fromTo of Object.values(updated)) {
+        if (this.records[fromTo[1].id]?.clock > clock) {
+          console.log("throwing out update record, ours is newer");
+          // noop, our copy is newer
+        } else {
+          this.records[fromTo[1].id] = { clock: this.clock, record: fromTo[1] };
+          ourUpdate.changes.updated[fromTo[1].id] = fromTo;
+        }
+      }
+      for (const record of Object.values(removed)) {
+        if (this.records[record.id]?.clock > clock) {
+          console.log("throwing out removed record, ours is newer");
+          // noop, our copy is newer
+        } else {
+          this.records[record.id] = { clock, record: null };
+          ourUpdate.changes.removed[record.id] = record;
+        }
+      }
+    }
+
+    return ourUpdate;
+  }
+
+  pendingUpdates: ClientUpdateFromServer[] = [];
+
+  onMessage(
+    message: string,
+    sender: Party.Connection<unknown>
   ): void | Promise<void> {
-    if (!this.gameState) return;
+    const msg = JSON.parse(message as string) as ClientToServerMessage;
 
-    const userId = connection.id;
-    // let userId = request.headers.get("user-id");
-    // if (!userId) {
-    // userId = connection.id;
-    // request.headers.set('user-id', userId);
-    // }
+    if (!this.clients.has(sender)) {
+      const { clientId } = msg;
+      this.clients.set(sender, clientId as IPlayer["id"]);
+    }
+    switch (msg.type) {
+      case "ping": {
+        sender.send(
+          JSON.stringify({
+            clientId: "server",
+            type: "pong",
+            clock: this.clock,
+          })
+        );
+        break;
+      }
+      case "update": {
+        try {
+          if (!msg) throw Error("No message");
+          const modifiedUpdates = this.applyUpdate(this.clock, msg.updates);
+          // If it works, broadcast the update to all other clients
+          this.pendingUpdates.push({
+            clientId: msg.clientId,
+            updates: [modifiedUpdates],
+          });
+        } catch (err: any) {
+          // If we have a problem merging the update, we need to send a snapshot
+          // of the current state to the client so they can get back in sync.
 
-    // const existingUser = this.gameState.users.find((user) => user === userId);
-
-    // Ajout d'un joueur
-
-    this.gameState = gameUpdater(this.gameState, {
-      type: "addUser",
-      userId: userId,
-      sendTime: Date.now(),
-    }) as Game;
-
-    const messageToSend = {
-      type: "addUser",
-      content: this.gameState,
-    };
-    this.room.broadcast(JSON.stringify(messageToSend));
-  }
-
-  // S'exécute à chaque fois qu'un joueur se déconnecte
-  async onClose(connection: Party.Connection) {
-    if (!this.gameState) return;
-    this.gameState = gameUpdater(this.gameState, {
-      type: "removeUser",
-      userId: connection.id as string,
-      sendTime: Date.now(),
-    }) as Game;
-
-    const messageToSend = {
-      type: "removeUser",
-      content: this.gameState,
-    };
-
-    this.room.broadcast(JSON.stringify(messageToSend));
-  }
-
-  // S'exécute lorsque la room est créée
-  async onStart() {
-    this.gameState = await this.room.storage.get<Game>("game");
-  }
-  //Permet de sauvegarder l'état de la partie
-  async savePoll() {
-    if (this.gameState) {
-      await this.room.storage.put<Game>("game", this.gameState);
+          console.error("Error applying update", err);
+          sender.send(
+            JSON.stringify({
+              type: "recovery",
+              clientId: "server",
+              clock: this.clock,
+              snapshot: this.getSnapshot(),
+            } satisfies ServerToClientMessage)
+          );
+        }
+        break;
+      }
+      case "recovery": {
+        // If the client asks for a recovery, send them a snapshot of the current state
+        sender.send(
+          JSON.stringify({
+            type: "recovery",
+            clientId: "server",
+            clock: this.clock,
+            snapshot: this.getSnapshot(),
+          } satisfies ServerToClientMessage)
+        );
+        break;
+      }
     }
   }
-}
 
-Server satisfies Party.Worker;
+  onAlarm = (): void | Promise<void> => {};
+
+  private getRecordsOfType = <T extends GameRecord>(type: T["typeName"]) => {
+    return Object.values(this.records)
+      .filter(({ record }) => record && record.typeName === type)
+      .map(({ record }) => record) as T[];
+  };
+
+  private putRecord = <T extends GameRecord>(record: T) => {
+    this.records[record.id] = {
+      clock: this.clock++,
+      record: Object.freeze(record),
+    };
+  };
+
+  private deleteRecord = <T extends GameRecord>(record: T) => {
+    this.records[record.id] = { clock: this.clock++, record: null };
+  };
+
+  onTick = (elapsed: number) => {
+    const frames = elapsed / FRAME_LENGTH;
+
+    const update: HistoryEntry<GameRecord> = {
+      changes: {
+        added: {},
+        updated: {},
+        removed: {},
+      },
+      source: "remote",
+    };
+
+    const players = this.getRecordsOfType<IPlayer>("player");
+    players.forEach((player) => {
+      const { player: nextPlayer, isPrivate } = updatePlayer(
+        frames,
+        player as IPlayer,
+        // players,
+        {
+          name: "server",
+        }
+      );
+
+      if (nextPlayer !== player) {
+        this.putRecord(nextPlayer);
+
+        if (!isPrivate) {
+          update.changes.updated[nextPlayer.id] = [player, nextPlayer];
+        }
+      }
+
+      // Create any new balls
+    });
+
+    // Update ball positions and delete any stopped balls
+
+    // Get the hits after updating the players?
+
+    // Delete any old kills
+
+    this.clients.forEach((clientId, connection) => {
+      if (connection.readyState === WebSocket.CLOSED) {
+        this.clients.delete(connection);
+        this.removePlayer(clientId);
+      }
+    });
+
+    // Broadcast our updates
+    this.room.broadcast(
+      JSON.stringify({
+        type: "update",
+        clientId: "server",
+        clock: this.clock,
+        updates: [
+          ...this.pendingUpdates,
+          { clientId: "server", updates: [update] },
+        ],
+      })
+    );
+
+    this.pendingUpdates.length = 0;
+  };
+}

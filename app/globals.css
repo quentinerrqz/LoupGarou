@@ -6,4 +6,46 @@
     grid-template-columns: 2fr 1fr;
     background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   }
+  .animSuspend1 {
+    animation: pulse_ping1  infinite 2s;
+  }
+  .animSuspend2 {
+    animation: pulse_ping2  infinite 2s;
+  }
+  .animSuspend3 {
+    animation: pulse_ping3  infinite 2s;
+  }
+  @keyframes pulse_ping1 {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  @keyframes pulse_ping2 {
+    0% {
+      opacity: 0;
+    }
+    25% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes pulse_ping3 {
+    0% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
 }

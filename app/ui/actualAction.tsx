@@ -4,8 +4,9 @@ import { IParams } from "../lib/game/schema/ParamsRecord";
 
 const ActualAction = memo(function actualAction() {
   const params = useQuery("params") as IParams;
-  const { actualGameAction } = params;
-  console.log("actualGameAction", actualGameAction);
+  const actualGameAction = params?.actualGameAction;
+
+
   return (
     <div className="absolute top-72 z-40 flex justify-center items-center">
       <div className="bg-white rounded-lg shadow-lg p-4">

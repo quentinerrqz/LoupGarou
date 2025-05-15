@@ -4,6 +4,7 @@ import { HistoryEntry } from "./types";
 export class Store<T extends GameRecord> {
   private records: { [key: string]: T } = {};
   private schema: any;
+  private currentPage: string = "lobby";
   private updater: () => void;
   private listenCallback: ((data: any) => void) | null = null;
   constructor({ schema, updater }: { schema: any; updater: () => void }) {
@@ -35,6 +36,21 @@ export class Store<T extends GameRecord> {
     this.updater();
   }
 
+  add(record: T) {
+    this.records[record.id] = record;
+    this.updater();
+    this.triggerCallback([
+      {
+        changes: {
+          added: { [record.id]: record },
+          updated: {},
+          removed: {},
+        },
+        source: "user",
+      },
+    ]);
+  }
+
   update(id: string, update: Partial<T>) {
     if (this.records[id]) {
       const oldRecord = this.records[id];
@@ -54,6 +70,11 @@ export class Store<T extends GameRecord> {
         },
       ]);
     }
+  }
+
+  setPage(page: string) {
+    this.currentPage = page;
+    this.updater();
   }
 
   updatePublicly(updates: any[]) {
@@ -94,6 +115,9 @@ export class Store<T extends GameRecord> {
       return Object.values(this.records).filter(
         (record) => record.typeName === type
       );
+    },
+    currentPage: () => {
+      return this.currentPage;
     },
   };
 

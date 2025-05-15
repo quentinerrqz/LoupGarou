@@ -1,5 +1,7 @@
 import { VecModel } from "../../Vec";
 import { PlayerTeam, PlayerState } from "../types";
+import { IRole, RoleRecordType } from "./RoleRecord";
+import { IVote } from "./VoteRecord";
 
 export interface IPlayer {
   typeName: "player";
@@ -7,10 +9,17 @@ export interface IPlayer {
   name: string;
   created_at: number;
   team: PlayerTeam | null;
-  role: string | null;
+  role: RoleRecordType | null;
   state: PlayerState;
   position: VecModel;
   speed: number;
+  isAdmin: boolean;
+  isReady: boolean;
+  loveIn: IPlayer["id"] | null;
+  vote: IVote | null;
+  voted: number;
+  targetBy: IRole["name"][];
+  closestPlayer: IPlayer | null;
 }
 
 export class PlayerRecord implements IPlayer {
@@ -23,6 +32,13 @@ export class PlayerRecord implements IPlayer {
   state: IPlayer["state"];
   position: IPlayer["position"];
   speed: IPlayer["speed"];
+  isAdmin: IPlayer["isAdmin"];
+  isReady: IPlayer["isReady"];
+  loveIn: IPlayer["loveIn"] | null;
+  vote: IPlayer["vote"] | null;
+  voted: number = 0;
+  targetBy: IPlayer["targetBy"] = [];
+  closestPlayer: IPlayer["closestPlayer"] = null;
 
   constructor({
     id,
@@ -30,12 +46,22 @@ export class PlayerRecord implements IPlayer {
     position,
     state,
     team,
+    isAdmin = true,
+    loveIn = null,
+    vote = null,
+    voted = 0,
+    targetBy = [],
   }: {
     id: IPlayer["id"];
     name: IPlayer["name"];
     position: VecModel | null;
     state?: PlayerState;
     team?: PlayerTeam | null;
+    isAdmin?: boolean;
+    loveIn?: IPlayer["loveIn"] | null;
+    vote?: IPlayer["vote"] | null;
+    voted: IPlayer["voted"];
+    targetBy?: IPlayer["targetBy"] | null;
   }) {
     this.id = id;
     this.name = name;
@@ -45,20 +71,12 @@ export class PlayerRecord implements IPlayer {
     this.state = state || { name: "idle" };
     this.position = position || { x: 0, y: 0 };
     this.speed = 1;
+    this.isAdmin = isAdmin;
+    this.isReady = false;
+    this.loveIn = loveIn || null;
+    this.vote = vote || null;
+    this.voted = voted;
+    this.targetBy = targetBy || [];
+    this.closestPlayer = null;
   }
 }
-
-// export class PlayerRecord = createRecordType<IPlayer>('player', {
-
-// 	validator: {
-// 		validate: (record) => {
-// 			return record as IPlayer
-// 		},
-// 	},
-// 	scope: 'document',
-// }).withDefaultProperties(() => ({
-// 	created_at: Date.now(),
-// 	state: { name: 'idle' },
-// 	health: 1,
-// 	speed: 1,
-// }))

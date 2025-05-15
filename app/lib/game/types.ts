@@ -1,18 +1,53 @@
 import { Vec, VecModel } from "../Vec";
 import { IPlayer } from "./schema/PlayerRecord";
 import { GameRecord } from "./schema";
+import { IRole, RoleRecordType } from "./schema/RoleRecord";
 
 export type PlayerTeam = "village" | "wolf";
+export type ChatCategory = "all" | "lover" | "wolf" | "dead";
 export type PlayerState =
   | { name: "idle" }
   | { name: "moving"; direction?: Vec }
-  | { name: "waiting"; duration: number }
-  | { name: "attacking"; targetId: IPlayer["id"]; power: number }
-  | { name: "voting"; targetId: IPlayer["id"] }
-  | { name: "dead" };
+  | { name: "vote"; targetId: IPlayer["id"] }
+  | { name: "voted"; targetId: IPlayer["id"] }
+  | { name: "die" }
+  | { name: "revenge" }
+  | { name: "sleeping" }
+  | { name: "waiting" };
+
 // | { name: 'aiming'; power: number; maxPower: number }
 // | { name: 'throwing'; recovery: number }
 // | { name: 'hit'; recovery: number }
+
+// export type RolePower = {
+//   description: string;
+// } | null;
+
+export interface IPower {
+  sorcière: {
+    potions: {
+      heal: number;
+      poison: number;
+    };
+  };
+  "loup-garou": {};
+  chasseur: {};
+  cupidon: {};
+  voyante: {};
+  "petite-fille": {};
+  villageois: {};
+}
+
+export type GeneralAction =
+  | { name: "start" }
+  | { name: "sleep"; who: IRole["name"] | "amoureux" | "all" }
+  | { name: "wake"; who: IRole["name"] | "amoureux" | "all" }
+  | { name: "happeningBegin"; who: "chasseur" }
+  | { name: "happeningEnd"; who: "chasseur" }
+  | { name: "voteBegin" }
+  | { name: "voteEnd" }
+  | { name: "end" }
+  | { name: "return lobby" };
 
 export type GameInputs = {
   pointer: PointerState;

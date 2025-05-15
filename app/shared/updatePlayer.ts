@@ -50,6 +50,35 @@ export function updatePlayer(
 
       break;
     }
+    case "waiting":{
+      // noop
+      break;
+    }
+    case "sleeping": {
+      // noop
+      break;
+    }
+    case "vote": {
+      // noop
+      break;
+    }
+    case "voted": {
+      // noop
+      break;
+    }
+    case "voting": {
+      // noop
+      break;
+    }
+    case "die": {
+      // noop
+      break;
+    }
+    case "revenge": {
+      // noop
+      break;
+    }
+    
     default: {
       throw Error(`Unhandled state`);
     }

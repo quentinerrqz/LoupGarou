@@ -44,7 +44,7 @@ export function getLocalPlayer() {
 
   const player = new PlayerRecord({
     id: userId,
-    name: " ",
+    name: randomName(),
     position: { x: 0, y: 0 },
   });
   return player;
@@ -56,3 +56,52 @@ export function persistLocalPlayer(player: IPlayer) {
     localStorage.setItem("LoupG_user", JSON.stringify(player));
   }
 }
+
+const randomName = () => {
+  const names = [
+    "Alice",
+    "Bob",
+    "Charlie",
+    "David",
+    "Eve",
+    "Frank",
+    "Grace",
+    "Heidi",
+    "Ivan",
+    "Judy",
+    "Mallory",
+    "Oscar",
+    "Peggy",
+    "Trent",
+    "Walter",
+    "Zoe",
+    "Alex",
+    "Bella",
+    "Chris",
+    "Diana",
+    "Ethan",
+    "Fiona",
+    "George",
+    "Hannah",
+    "Isaac",
+    "Julia",
+    "Kevin",
+    "Linda",
+    "Mike",
+    "Nina",
+    "Oliver",
+    "Pam",
+    "Quinn",
+    "Rachel",
+    "Steve",
+    "Tina",
+    "Ursula",
+    "Victor",
+    "Wendy",
+    "Xander",
+    "Yvonne",
+    "Zack",
+    "Hello World",
+  ];
+  return names[Math.floor(Math.random() * names.length)];
+};

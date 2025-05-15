@@ -9,6 +9,7 @@ export function syncStore(
   store: Store<GameRecord>,
   clientId: IPlayer["id"],
   roomId: string,
+
   events = {} as {
     onReady?: () => void;
     onPing?: (ms: number) => void;
@@ -18,6 +19,9 @@ export function syncStore(
     host: PARTYKIT_HOST,
     room: roomId,
     id: clientId,
+    query: {
+      clientId: clientId,
+    },
   });
 
   // const clientClocks = new Map<string, number>()
@@ -55,7 +59,6 @@ export function syncStore(
       switch (data.type) {
         case "init": {
           store.loadSnapshot(data.snapshot);
-          events.onReady?.();
           store.listen((e) => {
             if (!e.length) return;
 
@@ -68,6 +71,8 @@ export function syncStore(
               })
             );
           });
+          events.onReady?.();
+
           break;
         }
         case "recovery": {

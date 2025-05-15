@@ -23,6 +23,14 @@ export const KeysDirection = {
   ArrowRight: Vec.FromAngle(0),
 };
 
-
-
 export const MOVING_KEYS = ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"];
+
+export const TOUR_DE_PREPARATION = ["cupidon", "amoureux"];
+
+export const TOUR_NORMAL = ["voyante", "loup-garou", "sorcière", "all"];
+
+export const TEMPS_PAR_JOUEUR = 10; // seconds
+export const TEMPS_PAR_JOUEUR_MS = TEMPS_PAR_JOUEUR * 1000; // seconds
+
+export const TEMPS_DE_VOTE = 20; // seconds
+export const TEMPS_DE_VOTE_MS = TEMPS_DE_VOTE * 1000; // seconds

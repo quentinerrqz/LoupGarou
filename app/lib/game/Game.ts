@@ -5,7 +5,12 @@ import { Box } from "../Box";
 import { Vec, VecModel } from "../Vec";
 import { CLICK_DISTANCE, FRAME_LENGTH } from "./constants";
 import { GameRecord, gameSchema } from "./schema";
+import { IMessage } from "./schema/MessageRecord";
+import { IParams } from "./schema/ParamsRecord";
 import { IPlayer, PlayerRecord } from "./schema/PlayerRecord";
+import { ITimedAction } from "./schema/timedActionRecord";
+import { IVote } from "./schema/VoteRecord";
+import { IWoodLog } from "./schema/WoodLogRecord";
 import { getLocalPlayer, persistLocalPlayer } from "./storage";
 import { Store } from "./store";
 import { syncStore } from "./sync";
@@ -32,6 +37,10 @@ export class Game {
 
         this.player;
         this.players;
+        this.woodLogs;
+        this.messages;
+        this.gameParams;
+        this.timedAction;
 
         onUpdate(this);
       },
@@ -47,13 +56,13 @@ export class Game {
       },
       onReady: () => {
         // When connected and synced, add the player
-        this.store.put([
+        this.store.add(
           new PlayerRecord({
             ...localPlayer,
             position: getRespawnPosition(localPlayer, this.screenSize).toJson(),
             state: { name: "idle" },
-          }),
-        ]);
+          })
+        );
 
         setTimeout(() => {
           this.status = "ready";
@@ -76,8 +85,32 @@ export class Game {
 
   public ping = 0 as number;
 
+  public get woodLogs() {
+    return this.store.query.records("wood_log") as IWoodLog[];
+  }
+
+  public get messages() {
+    return this.store.query.records("message") as IMessage[];
+  }
+
   get playerId() {
     return localPlayer.id;
+  }
+
+  public get gameParams() {
+    return this.store.query.records("params")[0] as IParams;
+  }
+  public set currentPage(page: string) {
+    this.store.setPage(page);
+  }
+
+  public get timedAction() {
+    const timedAction = this.store.query.records("timedAction")[0] || null;
+    return timedAction as ITimedAction | null;
+  }
+
+  public get votes() {
+    return this.store.query.records("vote") as IVote[];
   }
 
   public get players() {
@@ -85,7 +118,7 @@ export class Game {
   }
 
   public get player() {
-    return this.store.get(this.playerId)!;
+    return this.store.get(this.playerId)! as IPlayer;
   }
 
   public screenSize = new Box(0, 0, window.innerWidth, window.innerHeight);
@@ -108,6 +141,51 @@ export class Game {
   updatePlayer(props: Partial<IPlayer>) {
     this.store.update(this.playerId, props);
   }
+
+  public setCosestPlayer = (player: IPlayer | null) => {
+    this.store.update(this.playerId, {
+      closestPlayer: player,
+    });
+  };
+
+  public targetToKill = (byRole: string, target: IPlayer) => {
+    const playerAlreadyTargeted = this.players.find(
+      (p) => p.targetBy.length > 0 && p.targetBy.includes(byRole)
+    );
+    if (playerAlreadyTargeted) {
+      this.store.update(playerAlreadyTargeted.id, {
+        targetBy: playerAlreadyTargeted.targetBy.filter((p) => p !== byRole),
+      });
+    }
+
+    this.store.update(target.id, {
+      targetBy: [...target.targetBy, this.player.role?.name || ""],
+    });
+  };
+
+  public vote = (vote: IVote) => {
+    this.store.add(vote);
+  };
+
+  public updateParams = (params: Partial<IParams>) => {
+    this.store.update(this.gameParams.id, params);
+  };
+
+  public updatePlayerName = (name: string) => {
+    this.store.update(this.playerId, {
+      name,
+    });
+  };
+
+  public updateIsReady = () => {
+    this.store.update(this.playerId, {
+      isReady: !this.player.isReady,
+    });
+  };
+
+  public addMessage = (message: IMessage) => {
+    this.store.add(message);
+  };
 
   /* ------------------- Coordinates ------------------ */
 

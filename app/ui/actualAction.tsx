@@ -2,7 +2,7 @@ import React, { memo } from "react";
 import useQuery from "../_Hooks/useQuery";
 import { IParams } from "../lib/game/schema/ParamsRecord";
 
-const ActualAction = memo(function actualAction() {
+const ActualAction = memo(function ActualAction() {
   const params = useQuery("params") as IParams;
   const actualGameAction = params?.actualGameAction;
 

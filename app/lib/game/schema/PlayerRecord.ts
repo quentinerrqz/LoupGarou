@@ -36,7 +36,7 @@ export class PlayerRecord implements IPlayer {
   isReady: IPlayer["isReady"];
   loveIn: IPlayer["loveIn"] | null;
   vote: IPlayer["vote"] | null;
-  voted: number = 0;
+  voted: IPlayer["voted"];
   targetBy: IPlayer["targetBy"] = [];
   closestPlayer: IPlayer["closestPlayer"] = null;
 
@@ -75,7 +75,7 @@ export class PlayerRecord implements IPlayer {
     this.isReady = false;
     this.loveIn = loveIn || null;
     this.vote = vote || null;
-    this.voted = voted;
+    this.voted = voted || 0;
     this.targetBy = targetBy || [];
     this.closestPlayer = null;
   }

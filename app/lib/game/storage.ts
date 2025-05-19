@@ -1,5 +1,6 @@
 "use client";
 
+import { Vec } from "../Vec";
 import { IPlayer, PlayerRecord } from "./schema/PlayerRecord";
 import { v4 } from "uuid";
 
@@ -45,7 +46,8 @@ export function getLocalPlayer() {
   const player = new PlayerRecord({
     id: userId,
     name: randomName(),
-    position: { x: 0, y: 0 },
+    position: new Vec(0, 0),
+    voted: 0,
   });
   return player;
 }

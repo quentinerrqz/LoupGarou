@@ -66,10 +66,7 @@ export function updatePlayer(
       // noop
       break;
     }
-    case "voting": {
-      // noop
-      break;
-    }
+   
     case "die": {
       // noop
       break;

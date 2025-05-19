@@ -20,7 +20,7 @@ const Regles = memo(function Regles() {
             <li>Les loups-garous doivent éliminer les villageois.</li>
             <li>
               Les joueurs peuvent discuter et voter pour éliminer un autre
-              joueur au cours d'un vote.
+              joueur au cours d&#39;un vote.
             </li>
             <li>
               Le jeu se termine lorsque tous les loups-garous sont éliminés ou

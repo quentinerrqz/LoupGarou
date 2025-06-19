@@ -1,23 +1,35 @@
 import { Box } from "../lib/Box";
 import { Vec } from "../lib/Vec";
-import { KeysDirection, MOVEMENT_PER_FRAME } from "../lib/game/constants";
+import {
+  KeysDirection,
+  MOVEMENT_PER_FRAME,
+  OFFSET_TRIGGER_RADIUS,
+} from "../lib/game/constants";
 import { IPlayer } from "../lib/game/schema/PlayerRecord";
-import { KeysState, PointerState } from "../lib/game/types";
+import { MovingKeysState, PointerState } from "../lib/game/types";
+import { game } from "../ui/GameProvider";
 
 export function getMovingUserPlayer(
-  // screenSize:Box,
+  screenSize: Box,
   frames: number,
   player: IPlayer,
-  keys: KeysState
+  keys: MovingKeysState
   // pointer: PointerState & { name: "dragging" }
 ): IPlayer {
   // Take into account the initial offset between the pointer and the player position
 
+  const Directions = {
+    Up: keys.ARROWUP || keys.W,
+    Down: keys.ARROWDOWN || keys.S,
+    Left: keys.ARROWLEFT || keys.A,
+    Right: keys.ARROWRIGHT || keys.D,
+  };
+
   const points = [];
 
-  for (const key in keys) {
-    if (keys[key as keyof KeysState]) {
-      points.push(KeysDirection[key as keyof KeysState]);
+  for (const key in Directions) {
+    if (Directions[key as keyof typeof Directions]) {
+      points.push(KeysDirection[key as keyof typeof KeysDirection]);
     }
   }
 
@@ -42,7 +54,7 @@ export function getMovingUserPlayer(
 
   const newX = Math.abs(x) < 0.0001 ? 0 : x;
   const newY = Math.abs(y) < 0.0001 ? 0 : y;
-  
+
   const point = new Vec(newX, newY);
 
   if (point.x === 0 && point.y === 0) return player;
@@ -51,14 +63,37 @@ export function getMovingUserPlayer(
   //   return { ...player, position: point };
   // }
 
+  const nextPosition = point
+    ? Vec.Add(player.position, Vec.Mul(point.uni(), movementThisFrame)).toJson()
+    : player.position;
+
+  if (!game) return player;
+
+  // const centerScreen = new Vec((screenSize.w / 2), (screenSize.h / 2));
+  const centerScreen = new Vec(0, 0);
+  const screenPosition = game.worldToScreen(
+    new Vec(nextPosition.x, nextPosition.y)
+  );
+  const dist = Vec.Dist(centerScreen, screenPosition);
+
+  if (dist > OFFSET_TRIGGER_RADIUS) {
+    const distVec = Vec.Sub(screenPosition, centerScreen);
+    const pointOnCircle = Vec.Add(
+      centerScreen,
+      Vec.Mul(distVec.uni(), OFFSET_TRIGGER_RADIUS)
+    );
+    const excess = Vec.Sub(screenPosition, pointOnCircle);
+    game.screenSize = new Box(
+      screenSize.x - excess.x,
+      screenSize.y - excess.y,
+      screenSize.w,
+      screenSize.h
+    );
+  }
+
   return {
     ...player,
 
-    position: point
-      ? Vec.Add(
-          player.position,
-          Vec.Mul(point.uni(), movementThisFrame)
-        ).toJson()
-      : player.position,
+    position: nextPosition,
   };
 }

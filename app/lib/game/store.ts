@@ -72,11 +72,6 @@ export class Store<T extends GameRecord> {
     }
   }
 
-  setPage(page: string) {
-    this.currentPage = page;
-    this.updater();
-  }
-
   updatePublicly(updates: any[]) {
     const updatesList: HistoryEntry<GameRecord>[] = [];
 
@@ -104,6 +99,25 @@ export class Store<T extends GameRecord> {
     for (const id of ids) {
       delete this.records[id];
     }
+    this.updater();
+  }
+  delete(id: string) {
+    const record = this.records[id];
+    if (!record) {
+      console.warn(`Record with id ${id} not found`);
+    }
+    delete this.records[id];
+    this.triggerCallback([
+      {
+        changes: {
+          added: {},
+          updated: {},
+          removed: { [record.id]: record },
+        },
+        source: "user",
+      },
+    ]);
+
     this.updater();
   }
   mergeRemoteChanges(callback: () => void) {

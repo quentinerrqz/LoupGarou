@@ -43,7 +43,7 @@ export class RoleRecord implements IRole {
       this.generateId();
     }
   }
-  generateId() {
+  private generateId() {
     this.id = Math.random().toString(36).substring(2, 9);
   }
 }
@@ -101,7 +101,9 @@ export class Voyante extends RoleRecord {
     super({ id, name: "voyante" });
     this.description =
       "La voyante peut voir le rôle d'un joueur la nuit. Elle gagne avec le village.";
-    this.power = {};
+    this.power = {
+      vision: 1,
+    };
   }
 }
 

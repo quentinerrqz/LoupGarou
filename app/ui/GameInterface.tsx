@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import React, { memo, useCallback, useEffect } from "react";
 import Chat from "./Chat";
 import useQuery from "../_Hooks/useQuery";
 import { IParams } from "../lib/game/schema/ParamsRecord";
@@ -11,8 +11,31 @@ import { Table } from "p5";
 import TableInfo from "./TableInfo";
 import ActionButton from "./ActionButton";
 import EndPage from "./EndPage";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { IPlayer } from "../lib/game/schema/PlayerRecord";
 
 const GameInterface = memo(function GameInterface() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const userName = (useQuery("player") as IPlayer).name || "Player";
+  // Get a new searchParams string by merging the current
+  // searchParams with a provided key/value pair
+  const createQueryString = useCallback(
+    (name: string, value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set(name, value);
+
+      return params.toString();
+    },
+    [searchParams]
+  );
+
+  useEffect(() => {
+    router.push(pathname + "?" + createQueryString("userName", userName));
+  }, [userName, pathname, router, createQueryString]);
+
   const gameParams = useQuery("params") as IParams;
   return (
     <>
@@ -28,7 +51,7 @@ const GameInterface = memo(function GameInterface() {
       )}
       {gameParams?.page === "game" && (
         <>
-        <TableInfo />
+          <TableInfo />
           <RoleCard />
           <Chat />
           <Regles />

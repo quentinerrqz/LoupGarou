@@ -1,10 +1,5 @@
 import GameProvider from "@/app/ui/GameProvider";
 
-type LayoutProps = {
-  children: React.ReactNode;
-  params: Promise<{ room_id: string }>;
-};
-
 export default async function Layout({
   children,
   params,

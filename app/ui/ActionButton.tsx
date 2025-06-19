@@ -16,7 +16,6 @@ const ActionButton = memo(function ActionButton() {
   const whoIsActive =
     actualGameAction.name === "wake" ? actualGameAction.who : null;
 
-  console.log("playerState", player.state.name);
   const handleClick = () => {
     actions[role.name as keyof typeof actions].action();
   };

@@ -33,7 +33,9 @@ export interface IPower {
   "loup-garou": {};
   chasseur: {};
   cupidon: {};
-  voyante: {};
+  voyante: {
+    vision: number;
+  };
   "petite-fille": {};
   villageois: {};
 }
@@ -51,16 +53,18 @@ export type GeneralAction =
 
 export type GameInputs = {
   pointer: PointerState;
-  keys: KeysState;
+  movingkeys: MovingKeysState;
 };
 
-export type KeysState = {
-  ArrowUp: boolean;
-  ArrowDown: boolean;
-  ArrowLeft: boolean;
-  ArrowRight: boolean;
-  // attack: boolean;
-  // vote: boolean;
+export type MovingKeysState = {
+  ARROWUP: boolean;
+  ARROWDOWN: boolean;
+  ARROWLEFT: boolean;
+  ARROWRIGHT: boolean;
+  W: boolean;
+  A: boolean;
+  S: boolean;
+  D: boolean;
 };
 
 export type PointerState =

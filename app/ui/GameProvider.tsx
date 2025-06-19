@@ -30,6 +30,7 @@ type GameQuery = {
   closestPlayer: IPlayer | null;
   timedAction: ITimedAction | null;
   screenSize: Box;
+ 
 };
 
 type Props = {
@@ -132,6 +133,7 @@ const GameProvider = ({ children, roomId }: Props) => {
           closestPlayer: g.player?.closestPlayer || null,
           timedAction: g.timedAction,
           screenSize: g.screenSize,
+          
         };
         setGameQuery(newQuery);
 
@@ -147,6 +149,7 @@ const GameProvider = ({ children, roomId }: Props) => {
       closestPlayer: gameReact.player?.closestPlayer || null,
       timedAction: gameReact.timedAction,
       screenSize: gameReact.screenSize,
+
     };
     setGameQuery(newQuery);
     setGameStatic(gameReact);

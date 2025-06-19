@@ -26,13 +26,19 @@ import { updatePlayer } from "@/app/shared/updatePlayer";
 import { IWoodLog, WoodLogRecord } from "@/app/lib/game/schema/WoodLogRecord";
 import { randomUUID } from "crypto";
 import { IParams, ParamsRecord } from "@/app/lib/game/schema/ParamsRecord";
-import { classicRoles, RoleRecordType } from "@/app/lib/game/schema/RoleRecord";
+import {
+  classicRoles,
+  IRole,
+  RoleRecordType,
+} from "@/app/lib/game/schema/RoleRecord";
 import {
   ITimedAction,
   TimedActionRecord,
 } from "@/app/lib/game/schema/timedActionRecord";
 import { IVote } from "@/app/lib/game/schema/VoteRecord";
 import next from "next";
+import { game } from "@/app/ui/GameProvider";
+import { Vec } from "@/app/lib/Vec";
 
 export default class SyncParty implements Party.Server {
   records: Record<RecordId<GameRecord>, ServerRecord<GameRecord>> = {};
@@ -122,251 +128,6 @@ export default class SyncParty implements Party.Server {
     this.updateFullRoles();
   }
 
-  private addWoodLog = (ownerId: IWoodLog["ownerId"]) => {
-    if (!ownerId) return;
-
-    const notOwnedWoodLogs = this.getRecordsOfType<IWoodLog>("wood_log").filter(
-      (log) => log.ownerId === null
-    );
-
-    if (notOwnedWoodLogs.length > 0) {
-      const woodLog = { ...notOwnedWoodLogs[0] }; // Create a mutable copy
-      woodLog.ownerId = ownerId;
-      this.putRecord(woodLog);
-      const update: HistoryEntry<GameRecord> = {
-        changes: {
-          added: {},
-          updated: {
-            [woodLog.id]: [woodLog, woodLog],
-          },
-          removed: {},
-        },
-        source: "remote",
-      };
-      this.pendingUpdates.push({ clientId: "server", updates: [update] });
-      return;
-    } else {
-      const woodLogRecord = new WoodLogRecord({
-        id: randomUUID(),
-        position: { x: Math.random() * 100, y: Math.random() * 100 },
-        ownerId,
-      });
-      this.putRecord(woodLogRecord);
-      const update: HistoryEntry<GameRecord> = {
-        changes: {
-          added: {
-            [woodLogRecord.id]: woodLogRecord,
-          },
-          updated: {},
-          removed: {},
-        },
-        source: "remote",
-      };
-      this.pendingUpdates.push({ clientId: "server", updates: [update] });
-      this.updateWoodLogsPosition();
-    }
-  };
-
-  private removeWoodLog = (ownerId: IWoodLog["ownerId"]) => {
-    const woodLogs = this.getRecordsOfType<IWoodLog>("wood_log");
-    const woodLog = woodLogs.find((log) => log.ownerId === ownerId)
-      ? woodLogs.find((log) => log.ownerId === ownerId)
-      : null;
-    if (!woodLog) return;
-    if (woodLogs.length > 5) {
-      if (woodLog) {
-        this.deleteRecord(woodLog);
-        const update: HistoryEntry<GameRecord> = {
-          changes: {
-            added: {},
-            updated: {},
-            removed: {
-              [woodLog.id]: woodLog,
-            },
-          },
-          source: "remote",
-        };
-
-        this.pendingUpdates.push({ clientId: "server", updates: [update] });
-        this.updateWoodLogsPosition();
-      }
-    } else {
-      if (woodLog) {
-        const mutableWoodLog = { ...woodLog }; // Create a mutable copy
-        mutableWoodLog.ownerId = null;
-
-        this.putRecord(mutableWoodLog);
-
-        const update: HistoryEntry<GameRecord> = {
-          changes: {
-            added: {},
-            updated: {
-              [mutableWoodLog.id]: [woodLog, mutableWoodLog],
-            },
-            removed: {},
-          },
-          source: "remote",
-        };
-        this.pendingUpdates.push({ clientId: "server", updates: [update] });
-      }
-    }
-  };
-
-  private updateWoodLogsPosition = () => {
-    const woodLogs = this.getRecordsOfType<IWoodLog>("wood_log");
-    if (woodLogs.length === 0) return;
-    const mutableWoodLogs = woodLogs.map((log) => ({ ...log })); // Create mutable copies
-    const length = mutableWoodLogs.length;
-    const radianAngle = (Math.PI * 2) / length;
-    const radius = 150;
-    for (const mutableWoodLog of mutableWoodLogs) {
-      const index = mutableWoodLogs.findIndex(
-        (log) => log.id === mutableWoodLog.id
-      );
-      if (index === -1) return;
-
-      const x = Math.cos(radianAngle * index) * radius;
-      const y = Math.sin(radianAngle * index) * radius;
-      const position = { x, y };
-      mutableWoodLog.position = position;
-    }
-    for (const woodLog of woodLogs) {
-      const mutableWoodLog = mutableWoodLogs.find(
-        (log) => log.id === woodLog.id
-      );
-
-      if (!mutableWoodLog) return;
-      this.putRecord(mutableWoodLog);
-      const update: HistoryEntry<GameRecord> = {
-        changes: {
-          added: {},
-          updated: {
-            [mutableWoodLog.id]: [woodLog, mutableWoodLog],
-          },
-          removed: {},
-        },
-        source: "remote",
-      };
-      this.pendingUpdates.push({ clientId: "server", updates: [update] });
-    }
-  };
-
-  private removePlayer(clientId: IPlayer["id"]) {
-    const clientPlayerRecord = this.getRecordById(clientId);
-
-    if (clientPlayerRecord) {
-      const { record } = clientPlayerRecord;
-      if (record) {
-        this.deleteRecord(record);
-
-        const update: HistoryEntry<GameRecord> = {
-          changes: {
-            added: {},
-            updated: {},
-            removed: {
-              [record.id]: record,
-            },
-          },
-          source: "remote",
-        };
-
-        this.pendingUpdates.push({ clientId: "server", updates: [update] });
-      }
-    }
-  }
-
-  private updateFullRoles = () => {
-    const params = this.getRecordsOfType<ParamsRecord>("params");
-    if (params.length === 0) return;
-    const paramsRecord = params[0];
-
-    if (!paramsRecord) return;
-    let newRoles: RoleRecordType[] = [];
-    if (paramsRecord.page === "lobby") {
-      switch (paramsRecord.rolesSchema) {
-        case "classic":
-          newRoles = classicRoles.slice(0, this.clients.size);
-          break;
-
-        default:
-          newRoles = paramsRecord.roles.slice(0, this.clients.size);
-          break;
-      }
-    }
-
-    this.putRecord({ ...paramsRecord, roles: newRoles });
-
-    const update: HistoryEntry<GameRecord> = {
-      changes: {
-        added: {},
-        updated: {
-          [paramsRecord.id]: [
-            paramsRecord,
-            {
-              ...paramsRecord,
-              roles: newRoles,
-            },
-          ],
-        },
-        removed: {},
-      },
-      source: "remote",
-    };
-
-    this.pendingUpdates.push({ clientId: "server", updates: [update] });
-  };
-
-  private applyUpdate(
-    clock: number,
-    updates: HistoryEntry<GameRecord>[]
-  ): HistoryEntry<GameRecord> {
-    const ourUpdate: HistoryEntry<GameRecord> = {
-      changes: {
-        added: {},
-        updated: {},
-        removed: {},
-      },
-      source: "remote",
-    };
-
-    for (const update of updates) {
-      const {
-        changes: { added, updated, removed },
-      } = update as HistoryEntry<GameRecord>;
-      // Try to merge the update into our local store
-      for (const record of Object.values(added)) {
-        if (this.records[record.id]?.clock > clock) {
-          // noop, our copy is newer
-          console.log("throwing out add record, ours is newer");
-        } else {
-          this.records[record.id] = { clock, record };
-          ourUpdate.changes.added[record.id] = record;
-        }
-      }
-
-      for (const fromTo of Object.values(updated)) {
-        if (this.records[fromTo[1].id]?.clock > clock) {
-          console.log("throwing out update record, ours is newer");
-          // noop, our copy is newer
-        } else {
-          this.records[fromTo[1].id] = { clock: this.clock, record: fromTo[1] };
-          ourUpdate.changes.updated[fromTo[1].id] = fromTo;
-        }
-      }
-      for (const record of Object.values(removed)) {
-        if (this.records[record.id]?.clock > clock) {
-          console.log("throwing out removed record, ours is newer");
-          // noop, our copy is newer
-        } else {
-          this.records[record.id] = { clock, record: null };
-          ourUpdate.changes.removed[record.id] = record;
-        }
-      }
-    }
-
-    return ourUpdate;
-  }
-
   pendingUpdates: ClientUpdateFromServer[] = [];
 
   onMessage(
@@ -437,43 +198,7 @@ export default class SyncParty implements Party.Server {
     this.manageAlarm();
   };
 
-  private checkAllReady = () => {
-    const players = this.getRecordsOfType<IPlayer>("player");
-    if (players.length === 0) return;
-    const allReady = players.every((player) => player.isReady);
-    if (allReady && !this.IsStarting) {
-      const newAction = new TimedActionRecord({
-        id: randomUUID(),
-        countdown: 5000,
-        action: {
-          name: "start",
-        },
-      });
-      this.addTimedAction(newAction);
-      this.IsStarting = true;
-    } else if (!allReady && this.IsStarting) {
-      const timedActions = this.getRecordsOfType(
-        "timedAction"
-      ) as ITimedAction[];
-      if (timedActions.length > 0) {
-        for (const action of timedActions) {
-          this.deleteRecord(action);
-          const update: HistoryEntry<GameRecord> = {
-            changes: {
-              added: {},
-              updated: {},
-              removed: {
-                [action.id]: action,
-              },
-            },
-            source: "remote",
-          };
-          this.pendingUpdates.push({ clientId: "server", updates: [update] });
-        }
-      }
-      this.IsStarting = false;
-    }
-  };
+  // ALARM MANAGEMENT //////////////////////////////////////
 
   private addTimedAction = (action: ITimedAction) => {
     const timedAction =
@@ -482,18 +207,10 @@ export default class SyncParty implements Party.Server {
     if (!timedAction) {
       this.room.storage.setAlarm(Date.now() + 1000);
 
-      this.putRecord(action);
-      const update: HistoryEntry<GameRecord> = {
-        changes: {
-          added: {
-            [action.id]: action,
-          },
-          updated: {},
-          removed: {},
-        },
-        source: "remote",
-      };
-      this.pendingUpdates.push({ clientId: "server", updates: [update] });
+      this.updateChanges({
+        methode: "add",
+        to: action,
+      });
     }
   };
 
@@ -534,38 +251,82 @@ export default class SyncParty implements Party.Server {
     } else {
       const mutableAction = { ...timedAction }; // Create a mutable copy
       mutableAction.countdown -= 1000;
-      this.putRecord(mutableAction);
-      const update: HistoryEntry<GameRecord> = {
-        changes: {
-          added: {},
-          updated: {
-            [mutableAction.id]: [timedAction, mutableAction],
-          },
-          removed: {},
-        },
-        source: "remote",
-      };
-      this.pendingUpdates.push({ clientId: "server", updates: [update] });
+      this.updateChanges({
+        methode: "update",
+        from: timedAction,
+        to: mutableAction,
+      });
     }
 
     this.room.storage.setAlarm(now + 1000);
   };
+
+  /// THE GOD FUNCTION ////////////////////////////////////
+
+  private applyUpdate(
+    clock: number,
+    updates: HistoryEntry<GameRecord>[]
+  ): HistoryEntry<GameRecord> {
+    const ourUpdate: HistoryEntry<GameRecord> = {
+      changes: {
+        added: {},
+        updated: {},
+        removed: {},
+      },
+      source: "remote",
+    };
+
+    for (const update of updates) {
+      const {
+        changes: { added, updated, removed },
+      } = update as HistoryEntry<GameRecord>;
+      // Try to merge the update into our local store
+      for (const record of Object.values(added)) {
+        if (this.records[record.id]?.clock > clock) {
+          // noop, our copy is newer
+          console.log("throwing out add record, ours is newer");
+        } else {
+          this.records[record.id] = { clock, record };
+          ourUpdate.changes.added[record.id] = record;
+        }
+      }
+
+      for (const fromTo of Object.values(updated)) {
+        if (this.records[fromTo[1].id]?.clock > clock) {
+          console.log("throwing out update record, ours is newer");
+          // noop, our copy is newer
+        } else {
+          this.records[fromTo[1].id] = { clock: this.clock, record: fromTo[1] };
+          ourUpdate.changes.updated[fromTo[1].id] = fromTo;
+        }
+      }
+      for (const record of Object.values(removed)) {
+        if (this.records[record.id]?.clock > clock) {
+          console.log("throwing out removed record, ours is newer");
+          // noop, our copy is newer
+        } else {
+          this.records[record.id] = { clock, record: null };
+          ourUpdate.changes.removed[record.id] = record;
+        }
+      }
+    }
+
+    return ourUpdate;
+  }
 
   private applyAction = (action: ITimedAction["action"]) => {
     const players = this.getRecordsOfType<IPlayer>("player");
     const alivePlayers = players.filter(
       (player) => player.role?.isAlive === true
     );
+    const params = this.getRecordsOfType<ParamsRecord>("params");
+    if (params.length === 0) return;
+    const paramsRecord = params[0];
+    if (!paramsRecord) return;
     switch (action.name) {
       case "start": {
         this.IsStarting = false;
         this.isFirstTour = true;
-        const params = this.getRecordsOfType<ParamsRecord>("params");
-        if (params.length === 0) return;
-        const paramsRecord = params[0];
-        if (!paramsRecord) return;
-        const newParams = { ...paramsRecord }; // Create a mutable copy
-        newParams.page = "game";
 
         const shuffledRoles = this.mixRoles(paramsRecord.roles);
 
@@ -576,39 +337,16 @@ export default class SyncParty implements Party.Server {
             role.playerId = player.id;
           }
           mutablePlayer.role = role;
-          this.putRecord(mutablePlayer);
 
-          const update: HistoryEntry<GameRecord> = {
-            changes: {
-              added: {},
-              updated: {
-                [mutablePlayer.id]: [
-                  player as IPlayer,
-                  mutablePlayer as IPlayer,
-                ],
-              },
-              removed: {},
-            },
-            source: "remote",
-          };
-          this.pendingUpdates.push({ clientId: "server", updates: [update] });
+          this.updateChanges({
+            methode: "update",
+            from: player,
+            to: mutablePlayer,
+          });
           this.teleportToWoodLog(player.id);
         });
 
-        this.putRecord(newParams);
-
-        const update: HistoryEntry<GameRecord> = {
-          changes: {
-            added: {},
-            updated: {
-              [newParams.id]: [paramsRecord, newParams],
-            },
-            removed: {},
-          },
-          source: "remote",
-        };
-
-        this.pendingUpdates.push({ clientId: "server", updates: [update] });
+        this.updateParams({ page: "game" });
         this.addTimedAction(
           new TimedActionRecord({
             id: randomUUID(),
@@ -620,114 +358,42 @@ export default class SyncParty implements Party.Server {
       }
 
       case "sleep": {
-        const params = this.getRecordsOfType<ParamsRecord>("params");
-        if (params.length === 0) return;
-        const paramsRecord = params[0];
-        if (!paramsRecord) return;
-
         switch (action.who) {
           case "all": {
-            if (!paramsRecord.isDay) {
-              break;
-            }
-
             if (this.isFirstTour) {
               this.tourAgenda = TOUR_DE_PREPARATION.concat(TOUR_NORMAL);
             } else {
-              this.tourAgenda = TOUR_NORMAL;
+              this.tourAgenda = TOUR_NORMAL.slice();
             }
 
-            const newParams = { ...paramsRecord }; // Create a mutable copy
-            newParams.isDay = false;
+            this.updateParams({ isDay: false });
 
-            this.putRecord(newParams);
-            const update: HistoryEntry<GameRecord> = {
-              changes: {
-                added: {},
-                updated: {
-                  [newParams.id]: [paramsRecord, newParams],
-                },
-                removed: {},
+            this.updatePlayers({
+              newPlayer: ({ player }) => {
+                return { ...player, state: { name: "sleeping" } };
               },
-              source: "remote",
-            };
-            this.pendingUpdates.push({ clientId: "server", updates: [update] });
-
-            alivePlayers.forEach((player) => {
-              const mutablePlayer = { ...player }; // Create a mutable copy
-              mutablePlayer.state = { name: "sleeping" };
-              this.teleportToWoodLog(player.id);
-              this.putRecord(mutablePlayer);
-
-              const update: HistoryEntry<GameRecord> = {
-                changes: {
-                  added: {},
-                  updated: {
-                    [mutablePlayer.id]: [player, mutablePlayer],
-                  },
-                  removed: {},
-                },
-                source: "remote",
-              };
-              this.pendingUpdates.push({
-                clientId: "server",
-                updates: [update],
-              });
+              options: { who: "all", isAlive: true, teleport: true },
             });
             this.wakeUpNextRole();
             break;
           }
           case "amoureux": {
-            const lovers = alivePlayers.filter((player) => player.loveIn);
-            lovers.forEach((lover) => {
-              const mutableLover = { ...lover }; // Create a mutable copy
-              mutableLover.state = { name: "sleeping" };
-              this.teleportToWoodLog(lover.id);
-              this.putRecord(mutableLover);
-
-              const update: HistoryEntry<GameRecord> = {
-                changes: {
-                  added: {},
-                  updated: {
-                    [mutableLover.id]: [lover, mutableLover],
-                  },
-                  removed: {},
-                },
-                source: "remote",
-              };
-              this.pendingUpdates.push({
-                clientId: "server",
-                updates: [update],
-              });
+            this.updatePlayers({
+              newPlayer: ({ player }) => {
+                return { ...player, state: { name: "sleeping" } };
+              },
+              options: { who: "amoureux", isAlive: true, teleport: true },
             });
             this.wakeUpNextRole();
             break;
           }
 
           default: {
-            const PlayerWithRoles = alivePlayers.filter((p) => {
-              p.role?.name === action.who;
-            }) as IPlayer[];
-            PlayerWithRoles.forEach((player) => {
-              const mutablePlayer = { ...player }; // Create a mutable copy
-              mutablePlayer.state = { name: "sleeping" };
-              this.teleportToWoodLog(player.id);
-              this.putRecord(mutablePlayer);
-
-              const update: HistoryEntry<GameRecord> = {
-                changes: {
-                  added: {},
-                  updated: {
-                    [mutablePlayer.id]: [player, mutablePlayer],
-                  },
-                  removed: {},
-                },
-                source: "remote",
-              };
-              this.pendingUpdates.push({
-                clientId: "server",
-                updates: [update],
-              });
+            this.updatePlayers({
+              newPlayer: ({ player }) => {
+                return { ...player, state: { name: "sleeping" } };
+              },
+              options: { who: action.who, isAlive: true, teleport: true },
             });
             this.wakeUpNextRole();
             break;
@@ -735,54 +401,20 @@ export default class SyncParty implements Party.Server {
         }
         break;
       }
-      case "wake": {
-        const params = this.getRecordsOfType<ParamsRecord>("params");
-        if (params.length === 0) return;
-        const paramsRecord = params[0] as IParams;
-        if (!paramsRecord) return;
 
+      case "wake": {
         switch (action.who) {
           case "all": {
-            if (paramsRecord.isDay) {
-              break;
-            }
             this.isFirstTour = false;
 
-            const newParams = { ...paramsRecord }; // Create a mutable copy
-            newParams.isDay = true;
-            this.putRecord(newParams);
-            const update: HistoryEntry<GameRecord> = {
-              changes: {
-                added: {},
-                updated: {
-                  [newParams.id]: [paramsRecord, newParams],
-                },
-                removed: {},
-              },
-              source: "remote",
-            };
-            this.pendingUpdates.push({ clientId: "server", updates: [update] });
+            this.updateParams({ isDay: true });
 
             this.bilanDeLaNuit();
-            alivePlayers.forEach((player) => {
-              const mutablePlayer = { ...player }; // Create a mutable copy
-              mutablePlayer.state = { name: "waiting" };
-              this.putRecord(mutablePlayer);
-
-              const update: HistoryEntry<GameRecord> = {
-                changes: {
-                  added: {},
-                  updated: {
-                    [mutablePlayer.id]: [player, mutablePlayer],
-                  },
-                  removed: {},
-                },
-                source: "remote",
-              };
-              this.pendingUpdates.push({
-                clientId: "server",
-                updates: [update],
-              });
+            this.updatePlayers({
+              newPlayer: ({ player }) => {
+                return { ...player, state: { name: "waiting" } };
+              },
+              options: { who: "all", isAlive: true, teleport: true },
             });
 
             if (this.happenningBy) {
@@ -798,25 +430,11 @@ export default class SyncParty implements Party.Server {
               );
             } else {
               this.checkIfWin();
-              alivePlayers.forEach((player) => {
-                const mutablePlayer = { ...player }; // Create a mutable copy
-                mutablePlayer.state = { name: "idle" };
-                this.putRecord(mutablePlayer);
-
-                const update: HistoryEntry<GameRecord> = {
-                  changes: {
-                    added: {},
-                    updated: {
-                      [mutablePlayer.id]: [player, mutablePlayer],
-                    },
-                    removed: {},
-                  },
-                  source: "remote",
-                };
-                this.pendingUpdates.push({
-                  clientId: "server",
-                  updates: [update],
-                });
+              this.updatePlayers({
+                newPlayer: ({ player }) => {
+                  return { ...player, state: { name: "idle" } };
+                },
+                options: { who: "all", isAlive: true, teleport: true },
               });
               this.addTimedAction(
                 new TimedActionRecord({
@@ -830,26 +448,11 @@ export default class SyncParty implements Party.Server {
             break;
           }
           case "amoureux": {
-            const lovers = alivePlayers.filter((player) => player.loveIn);
-            lovers.forEach((lover) => {
-              const mutableLover = { ...lover }; // Create a mutable copy
-              mutableLover.state = { name: "idle" };
-              this.putRecord(mutableLover);
-
-              const update: HistoryEntry<GameRecord> = {
-                changes: {
-                  added: {},
-                  updated: {
-                    [mutableLover.id]: [lover, mutableLover],
-                  },
-                  removed: {},
-                },
-                source: "remote",
-              };
-              this.pendingUpdates.push({
-                clientId: "server",
-                updates: [update],
-              });
+            this.updatePlayers({
+              newPlayer: ({ player }) => {
+                return { ...player, state: { name: "idle" } };
+              },
+              options: { who: "amoureux", isAlive: true, teleport: true },
             });
             this.addTimedAction(
               new TimedActionRecord({
@@ -862,28 +465,11 @@ export default class SyncParty implements Party.Server {
           }
 
           default: {
-            const PlayerWithRoles = alivePlayers.filter((p) => {
-              p.role?.name === action.who;
-            }) as IPlayer[];
-            PlayerWithRoles.forEach((player) => {
-              const mutablePlayer = { ...player }; // Create a mutable copy
-              mutablePlayer.state = { name: "idle" };
-              this.putRecord(mutablePlayer);
-
-              const update: HistoryEntry<GameRecord> = {
-                changes: {
-                  added: {},
-                  updated: {
-                    [mutablePlayer.id]: [player, mutablePlayer],
-                  },
-                  removed: {},
-                },
-                source: "remote",
-              };
-              this.pendingUpdates.push({
-                clientId: "server",
-                updates: [update],
-              });
+            this.updatePlayers({
+              newPlayer: ({ player }) => {
+                return { ...player, state: { name: "idle" } };
+              },
+              options: { who: action.who, isAlive: true, teleport: true },
             });
             this.addTimedAction(
               new TimedActionRecord({
@@ -898,6 +484,7 @@ export default class SyncParty implements Party.Server {
 
         break;
       }
+
       case "happeningBegin": {
         switch (action.who) {
           case "chasseur": {
@@ -913,33 +500,27 @@ export default class SyncParty implements Party.Server {
         }
         break;
       }
+
       case "happeningEnd": {
         switch (action.who) {
           case "chasseur": {
-            const chasseur = alivePlayers.find(
-              (player) => player.role?.name === "chasseur"
-            );
-            if (chasseur) {
-              const mutableChasseur = { ...chasseur }; // Create a mutable copy
-              mutableChasseur.state = { name: "die" };
-              mutableChasseur.role!.isAlive = false;
-              this.putRecord(mutableChasseur);
-
-              const update: HistoryEntry<GameRecord> = {
-                changes: {
-                  added: {},
-                  updated: {
-                    [mutableChasseur.id]: [chasseur, mutableChasseur],
-                  },
-                  removed: {},
-                },
-                source: "remote",
-              };
-              this.pendingUpdates.push({
-                clientId: "server",
-                updates: [update],
-              });
-            }
+            this.updatePlayers({
+              newPlayer: ({ player }) => {
+                return {
+                  ...player,
+                  state: { name: "die" },
+                  role: player.role
+                    ? Object.assign(
+                        Object.create(Object.getPrototypeOf(player.role)),
+                        { ...player.role, isAlive: false }
+                      )
+                    : null,
+                };
+              },
+              options: { who: "chasseur" },
+            });
+            this.happenningBy = null;
+            break;
           }
           default: {
             break;
@@ -962,27 +543,13 @@ export default class SyncParty implements Party.Server {
         );
         break;
       }
-      case "voteBegin": {
-        alivePlayers.forEach((player) => {
-          const mutablePlayer = { ...player }; // Create a mutable copy
-          mutablePlayer.state = { name: "waiting" };
-          this.teleportToWoodLog(player.id);
-          this.putRecord(mutablePlayer);
 
-          const update: HistoryEntry<GameRecord> = {
-            changes: {
-              added: {},
-              updated: {
-                [mutablePlayer.id]: [player, mutablePlayer],
-              },
-              removed: {},
-            },
-            source: "remote",
-          };
-          this.pendingUpdates.push({
-            clientId: "server",
-            updates: [update],
-          });
+      case "voteBegin": {
+        this.updatePlayers({
+          newPlayer: ({ player }) => {
+            return { ...player, state: { name: "waiting" } };
+          },
+          options: { who: "all", isAlive: true, teleport: true },
         });
         this.addTimedAction(
           new TimedActionRecord({
@@ -993,26 +560,13 @@ export default class SyncParty implements Party.Server {
         );
         break;
       }
-      case "voteEnd": {
-        alivePlayers.forEach((player) => {
-          const mutablePlayer = { ...player }; // Create a mutable copy
-          mutablePlayer.state = { name: "idle" };
-          this.putRecord(mutablePlayer);
 
-          const update: HistoryEntry<GameRecord> = {
-            changes: {
-              added: {},
-              updated: {
-                [mutablePlayer.id]: [player, mutablePlayer],
-              },
-              removed: {},
-            },
-            source: "remote",
-          };
-          this.pendingUpdates.push({
-            clientId: "server",
-            updates: [update],
-          });
+      case "voteEnd": {
+        this.updatePlayers({
+          newPlayer: ({ player }) => {
+            return { ...player, state: { name: "idle" } };
+          },
+          options: { who: "all", isAlive: true, teleport: true },
         });
 
         const votes = this.getRecordsOfType("vote") as IVote[];
@@ -1064,38 +618,21 @@ export default class SyncParty implements Party.Server {
             if (mutablePlayerToKill.role) {
               mutablePlayerToKill.role.isAlive = false;
             }
-            const update: HistoryEntry<GameRecord> = {
-              changes: {
-                added: {},
-                updated: {
-                  [mutablePlayerToKill.id]: [
-                    playerToKill.record,
-                    mutablePlayerToKill,
-                  ],
-                },
-                removed: {},
-              },
-              source: "remote",
-            };
-
-            this.pendingUpdates.push({ clientId: "server", updates: [update] });
+            this.updateChanges({
+              methode: "update",
+              from: playerToKill.record,
+              to: mutablePlayerToKill,
+            });
           }
         }
 
         votes.forEach((vote) => {
           const mutableVote = { ...vote }; // Create a mutable copy
-          this.deleteRecord(mutableVote);
-          const update: HistoryEntry<GameRecord> = {
-            changes: {
-              added: {},
-              updated: {},
-              removed: {
-                [mutableVote.id]: mutableVote,
-              },
-            },
-            source: "remote",
-          };
-          this.pendingUpdates.push({ clientId: "server", updates: [update] });
+          this.updateChanges({
+            methode: "remove",
+            from: vote,
+            to: mutableVote,
+          });
         });
 
         if (this.happenningBy) {
@@ -1124,24 +661,7 @@ export default class SyncParty implements Party.Server {
       }
 
       case "end": {
-        const params = this.getRecordsOfType<ParamsRecord>("params");
-        if (params.length === 0) return;
-        const paramsRecord = params[0];
-        if (!paramsRecord) return;
-        const newParams = { ...paramsRecord }; // Create a mutable copy
-        newParams.page = "end";
-        this.putRecord(newParams);
-        const update: HistoryEntry<GameRecord> = {
-          changes: {
-            added: {},
-            updated: {
-              [newParams.id]: [paramsRecord, newParams],
-            },
-            removed: {},
-          },
-          source: "remote",
-        };
-        this.pendingUpdates.push({ clientId: "server", updates: [update] });
+        this.updateParams({ page: "end" });
 
         players.forEach((player) => {
           const mutablePlayer = { ...player }; // Create a mutable copy
@@ -1149,67 +669,31 @@ export default class SyncParty implements Party.Server {
           mutablePlayer.role = null;
           mutablePlayer.targetBy = [];
 
-          this.putRecord(mutablePlayer);
-
-          const update: HistoryEntry<GameRecord> = {
-            changes: {
-              added: {},
-              updated: {
-                [mutablePlayer.id]: [player, mutablePlayer],
-              },
-              removed: {},
-            },
-            source: "remote",
-          };
-          this.pendingUpdates.push({
-            clientId: "server",
-            updates: [update],
+          this.updateChanges({
+            methode: "update",
+            from: player,
+            to: mutablePlayer,
           });
         });
         break;
       }
+
       case "return lobby": {
-        const params = this.getRecordsOfType<ParamsRecord>("params");
-        if (params.length === 0) return;
-        const paramsRecord = params[0];
-        if (!paramsRecord) return;
-        const newParams = { ...paramsRecord }; // Create a mutable copy
-        newParams.page = "lobby";
-        this.putRecord(newParams);
-        const update: HistoryEntry<GameRecord> = {
-          changes: {
-            added: {},
-            updated: {
-              [newParams.id]: [paramsRecord, newParams],
-            },
-            removed: {},
+        this.updateParams({ page: "lobby" });
+        this.IsStarting = false;
+        this.tourAgenda = [];
+        this.happenningBy = null;
+        this.isFirstTour = true;
+
+        this.updatePlayers({
+          newPlayer: ({ player }) => {
+            return {
+              ...player,
+              state: { name: "idle" },
+              role: null,
+              targetBy: [],
+            };
           },
-          source: "remote",
-        };
-        this.pendingUpdates.push({ clientId: "server", updates: [update] });
-
-        players.forEach((player) => {
-          const mutablePlayer = { ...player }; // Create a mutable copy
-          mutablePlayer.state = { name: "idle" };
-          mutablePlayer.role = null;
-          mutablePlayer.targetBy = [];
-
-          this.putRecord(mutablePlayer);
-
-          const update: HistoryEntry<GameRecord> = {
-            changes: {
-              added: {},
-              updated: {
-                [mutablePlayer.id]: [player, mutablePlayer],
-              },
-              removed: {},
-            },
-            source: "remote",
-          };
-          this.pendingUpdates.push({
-            clientId: "server",
-            updates: [update],
-          });
         });
 
         break;
@@ -1221,9 +705,289 @@ export default class SyncParty implements Party.Server {
     }
   };
 
-  private wakeUpNextRole = () => {
+  private updateChanges = ({
+    methode,
+    from,
+    to,
+  }: {
+    methode: "add" | "update" | "remove";
+    from?: GameRecord;
+    to: GameRecord;
+  }) => {
+    const added = methode === "add" ? { [to.id]: to } : {};
+    const updated =
+      methode === "update" && from
+        ? { [to.id]: [from, to] as [GameRecord, GameRecord] }
+        : {};
+    const removed = methode === "remove" ? { [to.id]: to } : {};
 
-    
+    if (methode === "add" || methode === "update") {
+      this.putRecord(to);
+    } else if (methode === "remove") {
+      this.deleteRecord(to);
+    }
+
+    const update: HistoryEntry<GameRecord> = {
+      changes: {
+        added: { ...added },
+        updated: {
+          ...updated,
+        },
+        removed: {
+          ...removed,
+        },
+      },
+      source: "remote",
+    };
+    this.pendingUpdates.push({ clientId: "server", updates: [update] });
+  };
+
+  // MANAGEMENT FUNCTIONS ////////////////////
+
+  private updateParams = (params: Partial<IParams>) => {
+    const paramsRecord = this.getRecordsOfType<ParamsRecord>("params")[0];
+    if (!paramsRecord) return;
+
+    const newParams = { ...paramsRecord, ...params }; // Create a mutable copy
+    this.updateChanges({
+      methode: "update",
+      from: paramsRecord,
+      to: newParams,
+    });
+  };
+
+  private updatePlayers = ({
+    newPlayer,
+    options,
+  }: {
+    newPlayer: ({
+      player,
+      index,
+    }: {
+      player: IPlayer;
+      index: number;
+    }) => Partial<IPlayer>;
+    options?: {
+      who?: IRole["name"] | "amoureux" | "all";
+      isAlive?: boolean;
+
+      teleport?: boolean;
+    };
+  }) => {
+    if (!newPlayer) return;
+
+    if (!options) options = { who: "all", teleport: false };
+    const isAll = options.isAlive === undefined;
+
+    const condition = (player: IPlayer) => {
+      if (options.who === "all") {
+        return isAll ? true : player.role?.isAlive === options.isAlive;
+      }
+      if (options.who === "amoureux") {
+        return (
+          player.loveIn &&
+          (isAll ? true : player.role?.isAlive === options.isAlive)
+        );
+      }
+      return (
+        player.role?.name === options.who &&
+        (isAll ? true : player.role?.isAlive === options.isAlive)
+      );
+    };
+
+    const players = this.getRecordsOfType<IPlayer>("player").filter(condition);
+
+    if (players.length === 0) return;
+    players.forEach((player, index) => {
+      const mutablePlayer = newPlayer({ player, index }) as IPlayer; // Create a mutable copy
+      this.updateChanges({
+        methode: "update",
+        from: player,
+        to: mutablePlayer,
+      });
+      if (options.teleport) {
+        this.teleportToWoodLog(player.id);
+      }
+    });
+  };
+
+  /// GAME FUNCTIONS /////////////////////////////////////
+
+  // WOOD LOGS //////////////////////////////////////
+
+  private addWoodLog = (ownerId: IWoodLog["ownerId"]) => {
+    if (!ownerId) return;
+
+    const notOwnedWoodLogs = this.getRecordsOfType<IWoodLog>("wood_log").filter(
+      (log) => log.ownerId === null
+    );
+
+    if (notOwnedWoodLogs.length > 0) {
+      const woodLog = { ...notOwnedWoodLogs[0] }; // Create a mutable copy
+      woodLog.ownerId = ownerId;
+      this.updateChanges({
+        methode: "update",
+        from: notOwnedWoodLogs[0],
+        to: woodLog,
+      });
+      return;
+    } else {
+      const woodLogRecord = new WoodLogRecord({
+        id: randomUUID(),
+        position: { x: Math.random() * 100, y: Math.random() * 100 },
+        ownerId,
+      });
+      this.updateChanges({
+        methode: "add",
+        to: woodLogRecord,
+      });
+      this.updateWoodLogsPosition();
+    }
+  };
+
+  private removeWoodLog = (ownerId: IWoodLog["ownerId"]) => {
+    const woodLogs = this.getRecordsOfType<IWoodLog>("wood_log");
+    const woodLog = woodLogs.find((log) => log.ownerId === ownerId)
+      ? woodLogs.find((log) => log.ownerId === ownerId)
+      : null;
+    if (!woodLog) return;
+    if (woodLogs.length > 5) {
+      if (woodLog) {
+        this.updateChanges({
+          methode: "remove",
+          to: woodLog,
+        });
+        this.updateWoodLogsPosition();
+      }
+    } else {
+      if (woodLog) {
+        const mutableWoodLog = { ...woodLog }; // Create a mutable copy
+        mutableWoodLog.ownerId = null;
+
+        this.updateChanges({
+          methode: "update",
+          from: woodLog,
+          to: mutableWoodLog,
+        });
+      }
+    }
+  };
+
+  private updateWoodLogsPosition = () => {
+    const woodLogs = this.getRecordsOfType<IWoodLog>("wood_log");
+    if (woodLogs.length === 0) return;
+    const mutableWoodLogs = woodLogs.map((log) => ({ ...log })); // Create mutable copies
+    const length = mutableWoodLogs.length;
+    const radianAngle = (Math.PI * 2) / length;
+    const radius = 150;
+    for (const mutableWoodLog of mutableWoodLogs) {
+      const index = mutableWoodLogs.findIndex(
+        (log) => log.id === mutableWoodLog.id
+      );
+      if (index === -1) return;
+
+      const x = Math.cos(radianAngle * index) * radius;
+      const y = Math.sin(radianAngle * index) * radius;
+      const position = { x, y };
+      mutableWoodLog.position = position;
+    }
+    for (const woodLog of woodLogs) {
+      const mutableWoodLog = mutableWoodLogs.find(
+        (log) => log.id === woodLog.id
+      );
+
+      if (!mutableWoodLog) return;
+      this.updateChanges({
+        methode: "update",
+        from: woodLog,
+        to: mutableWoodLog,
+      });
+    }
+  };
+
+  private teleportToWoodLog = (playerId: IPlayer["id"]) => {
+    const playerRecord = this.getRecordById<IPlayer>(
+      playerId
+    ) as ServerRecord<IPlayer>;
+    if (!playerRecord) return;
+    const woodLogs = this.getRecordsOfType<IWoodLog>("wood_log") as IWoodLog[];
+    if (woodLogs.length === 0) return;
+    const woodLog = woodLogs.find((log) => log.ownerId === playerId);
+    if (!woodLog) return;
+    const player = playerRecord.record as IPlayer;
+    const mutablePlayer = { ...player } as IPlayer; // Create a mutable copy
+
+    mutablePlayer.position = woodLog.position;
+    this.updateChanges({
+      methode: "update",
+      from: player,
+      to: mutablePlayer,
+    });
+  };
+
+  // PLAYERS //////////////////////////////////////
+
+  private removePlayer(clientId: IPlayer["id"]) {
+    const clientPlayerRecord = this.getRecordById(clientId);
+
+    if (clientPlayerRecord) {
+      const { record } = clientPlayerRecord;
+      if (record) {
+        this.updateChanges({
+          methode: "remove",
+          to: record,
+        });
+      }
+    }
+  }
+
+  // ROLES //////////////////////////////////////
+
+  private updateFullRoles = () => {
+    const params = this.getRecordsOfType<ParamsRecord>("params");
+    if (params.length === 0) return;
+    const paramsRecord = params[0];
+
+    if (!paramsRecord) return;
+    let newRoles: RoleRecordType[] = [];
+    if (paramsRecord.page === "lobby") {
+      switch (paramsRecord.rolesSchema) {
+        case "classic":
+          newRoles = classicRoles.slice(0, this.clients.size);
+          break;
+
+        default:
+          newRoles = paramsRecord.roles.slice(0, this.clients.size);
+          break;
+      }
+    }
+
+    this.updateParams({
+      roles: newRoles,
+    });
+  };
+
+  private mixRoles = (roles: RoleRecordType[]) => {
+    for (let i = roles.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [roles[i], roles[j]] = [roles[j], roles[i]];
+    }
+    return roles;
+  };
+  private wakeUpNextRole = () => {
+    console.log("wakeUpNextRole", this.tourAgenda);
+    if (this.tourAgenda.length === 0) {
+      this.addTimedAction(
+        new TimedActionRecord({
+          id: randomUUID(),
+          countdown: 5000,
+          action: { name: "wake", who: "all" },
+        })
+      );
+
+      return;
+    }
+
     let next = this.tourAgenda[0];
 
     if (next === "amoureux") {
@@ -1244,18 +1008,6 @@ export default class SyncParty implements Party.Server {
         this.tourAgenda.shift();
         next = this.tourAgenda[0];
       }
-    }
-
-    if (next === "all") {
-      this.addTimedAction(
-        new TimedActionRecord({
-          id: randomUUID(),
-          countdown: 5000,
-          action: { name: "wake", who: "all" },
-        })
-      );
-      this.tourAgenda.shift();
-      return;
     }
 
     const alivePlayers = this.getRecordsOfType<IPlayer>("player").filter(
@@ -1285,17 +1037,7 @@ export default class SyncParty implements Party.Server {
           next = this.tourAgenda[0];
         }
       }
-      if (next === "all") {
-        this.addTimedAction(
-          new TimedActionRecord({
-            id: randomUUID(),
-            countdown: 5000,
-            action: { name: "wake", who: "all" },
-          })
-        );
-        this.tourAgenda.shift();
-        return;
-      }
+
       nextRole = alivePlayers.find((player) => player.role?.name === next);
     }
 
@@ -1308,42 +1050,50 @@ export default class SyncParty implements Party.Server {
         })
       );
       this.tourAgenda.shift();
+      console.log("nextRole", next);
+    } else {
+      this.addTimedAction(
+        new TimedActionRecord({
+          id: randomUUID(),
+          countdown: 5000,
+          action: { name: "wake", who: "all" },
+        })
+      );
+      this.tourAgenda.shift();
+      console.log("nextRole", "all");
     }
   };
 
-  private teleportToWoodLog = (playerId: IPlayer["id"]) => {
-    console.log("teleportToWoodLog", playerId);
-    const playerRecord = this.getRecordById<IPlayer>(
-      playerId
-    ) as ServerRecord<IPlayer>;
-    if (!playerRecord) return;
-    const woodLogs = this.getRecordsOfType<IWoodLog>("wood_log") as IWoodLog[];
-    if (woodLogs.length === 0) return;
-    const woodLog = woodLogs.find((log) => log.ownerId === playerId);
-    if (!woodLog) return;
-    const player = playerRecord.record as IPlayer;
-    const mutablePlayer = { ...player } as IPlayer; // Create a mutable copy
-    mutablePlayer.position = woodLog.position;
-    this.putRecord(mutablePlayer);
-    const update: HistoryEntry<GameRecord> = {
-      changes: {
-        added: {},
-        updated: {
-          [mutablePlayer.id]: [player, mutablePlayer],
+  // GAME LOGIC //////////////////////////////////////
+
+  private checkAllReady = () => {
+    const players = this.getRecordsOfType<IPlayer>("player");
+    if (players.length === 0) return;
+    const allReady = players.every((player) => player.isReady);
+    if (allReady && !this.IsStarting) {
+      const newAction = new TimedActionRecord({
+        id: randomUUID(),
+        countdown: 5000,
+        action: {
+          name: "start",
         },
-        removed: {},
-      },
-      source: "remote",
-    };
-    this.pendingUpdates.push({ clientId: "server", updates: [update] });
-  };
-
-  private mixRoles = (roles: RoleRecordType[]) => {
-    for (let i = roles.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [roles[i], roles[j]] = [roles[j], roles[i]];
+      });
+      this.addTimedAction(newAction);
+      this.IsStarting = true;
+    } else if (!allReady && this.IsStarting) {
+      const timedActions = this.getRecordsOfType(
+        "timedAction"
+      ) as ITimedAction[];
+      if (timedActions.length > 0) {
+        for (const action of timedActions) {
+          this.updateChanges({
+            methode: "remove",
+            to: action,
+          });
+        }
+      }
+      this.IsStarting = false;
     }
-    return roles;
   };
 
   private checkIfWin = () => {
@@ -1363,25 +1113,8 @@ export default class SyncParty implements Party.Server {
       (player) => player.role?.team === "village"
     );
 
-    // console.log("TeamWolf", TeamWolf);
-    // console.log("TeamVillager", TeamVillager);
-
     if (TeamWolf.length === 0 && TeamVillager.length === 0) {
-      const newParams = { ...paramsRecord }; // Create a mutable copy
-
-      newParams.winner = "none";
-      this.putRecord(newParams);
-      const update: HistoryEntry<GameRecord> = {
-        changes: {
-          added: {},
-          updated: {
-            [newParams.id]: [paramsRecord, newParams],
-          },
-          removed: {},
-        },
-        source: "remote",
-      };
-      this.pendingUpdates.push({ clientId: "server", updates: [update] });
+      this.updateParams({ winner: "none" });
       this.addTimedAction(
         new TimedActionRecord({
           id: randomUUID(),
@@ -1390,20 +1123,7 @@ export default class SyncParty implements Party.Server {
         })
       );
     } else if (TeamWolf.length === 0) {
-      const newParams = { ...paramsRecord }; // Create a mutable copy
-      newParams.winner = "village";
-      this.putRecord(newParams);
-      const update: HistoryEntry<GameRecord> = {
-        changes: {
-          added: {},
-          updated: {
-            [newParams.id]: [paramsRecord, newParams],
-          },
-          removed: {},
-        },
-        source: "remote",
-      };
-      this.pendingUpdates.push({ clientId: "server", updates: [update] });
+      this.updateParams({ winner: "village" });
       this.addTimedAction(
         new TimedActionRecord({
           id: randomUUID(),
@@ -1412,21 +1132,7 @@ export default class SyncParty implements Party.Server {
         })
       );
     } else if (TeamVillager.length === 0) {
-      const newParams = { ...paramsRecord }; // Create a mutable copy
-      newParams.winner = "wolf";
-
-      this.putRecord(newParams);
-      const update: HistoryEntry<GameRecord> = {
-        changes: {
-          added: {},
-          updated: {
-            [newParams.id]: [paramsRecord, newParams],
-          },
-          removed: {},
-        },
-        source: "remote",
-      };
-      this.pendingUpdates.push({ clientId: "server", updates: [update] });
+      this.updateParams({ winner: "wolf" });
       this.addTimedAction(
         new TimedActionRecord({
           id: randomUUID(),
@@ -1463,24 +1169,15 @@ export default class SyncParty implements Party.Server {
 
       mutablePlayer.targetBy = [];
 
-      this.putRecord(mutablePlayer);
-
-      const update: HistoryEntry<GameRecord> = {
-        changes: {
-          added: {},
-          updated: {
-            [mutablePlayer.id]: [player, mutablePlayer],
-          },
-          removed: {},
-        },
-        source: "remote",
-      };
-      this.pendingUpdates.push({
-        clientId: "server",
-        updates: [update],
+      this.updateChanges({
+        methode: "update",
+        from: player,
+        to: mutablePlayer,
       });
     });
   };
+
+  /// MANAGE RECORDS FUNCTIONS ///////////////////////////////////////
 
   private getRecordsOfType = <T extends GameRecord>(type: T["typeName"]) => {
     return Object.values(this.records)
@@ -1498,6 +1195,8 @@ export default class SyncParty implements Party.Server {
   private deleteRecord = <T extends GameRecord>(record: T) => {
     this.records[record.id] = { clock: this.clock++, record: null };
   };
+
+  /// ONTICK ///////////////////////////////////////
 
   onTick = (elapsed: number) => {
     const frames = elapsed / FRAME_LENGTH;
